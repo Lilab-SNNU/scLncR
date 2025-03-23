@@ -1,0 +1,14 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.DS_Store
+*.Rdata
+*.rda
+*.rds
+*.pdf
+*.png
+*.zip
+*.tar.gz
+logs/
+tmp/
