@@ -8,6 +8,7 @@
 *.rds
 *.pdf
 *.png
+!figures/*.png
 *.zip
 *.tar.gz
 logs/
