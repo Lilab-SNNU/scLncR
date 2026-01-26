@@ -1,0 +1,37 @@
+# =============================================================================
+# scLncR - Single-cell Analysis Pipeline: Custom Module Configuration
+# Purpose: Define input data paths, metadata settings, analysis parameters, and output directories.
+# Note:
+#   - Use absolute paths for all file/directory entries.
+#   - Avoid special characters in identifiers to prevent naming conflicts during processing.
+# =============================================================================
+
+# Core Parameters
+counts_dir: "~/paper/paper_case/step2_count"                   # String: Paths to sample directories (comma-separated)
+mt_name: "AthM"                                                # String: Mitochondrial gene prefix (e.g., "MT")
+min.RNAs: 100                                                  # Numeric: Minimum RNA count per cell (filters low-quality cells)
+max.RNAs: 7000                                                 # Numeric: Maximum RNA count per cell (filters high-count cells)
+percent.mt: 10                                                 # Numeric: Threshold for mitochondrial percentage (cells > this value are filtered)
+lnc_name: "AthLnc"                                             # String: lncRNA gene prefix (e.g., "lncRNA")
+nfeatures: 6000                                                # Numeric: Number of highly variable genes for preprocessing
+dims: 15                                                       # Numeric: Dimensionality for UMAP/tSNE
+resolution: 0.5                                                # Numeric: Clustering resolution (higher = more clusters)
+samples_info: "~/data/paper_test/samples_info.txt"             # String: Path to metadata CSV file for all samples
+anno_method: "SingleR"                                         # String: Annotation method ("SingleR" or "scMM")
+ref_file: "~/data/singler/Ryu_2019_507252.rds"                 # String: Reference file path for SingleR (required when anno_method=SingleR)
+marker_gene_file: ""                                           # String: Marker gene file path for scMM (required when anno_method=scMM)
+tissue: ""                                                     # String: Tissue type for scMM (e.g., "lung")
+n_top_markers: 3                                               # Numeric: Number of top markers used in scMM annotation
+output_dir: "~/paper/paper_case/step3_dataProcess"             # String: Root output directory for all results
+
+# Usage Guidelines
+# 1. Path Format Examples:
+#    counts_dir: "data/s1,data/s2,data/s3"
+# 2. Color Mapping Format:
+#    colour: "T_cell=red,B_cell=blue,NK_cell=green"
+# 3. Required Fields:
+#    - ref_file is mandatory when anno_method="SingleR"
+#    - marker_gene_file and tissue are mandatory when anno_method="scMM"
+# 4. Path Conventions:
+#    - Absolute path: /home/user/data/s1
+#    - Relative path: data/s1 (relative to working directory)

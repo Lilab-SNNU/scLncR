@@ -1,0 +1,16 @@
+#!/bin/bash
+# scLncR - Command-line interface for single-cell lncRNA analysis
+
+# Resolve the true script directory, even if symlinked
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+# Pass resolved path to R as internal argument
+export SC_LNCR_HOME="$SCRIPT_DIR"
+exec Rscript --slave --no-restore --no-save \
+        "$SCRIPT_DIR/R/main.R" "$@"

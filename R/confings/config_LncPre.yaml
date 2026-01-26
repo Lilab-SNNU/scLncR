@@ -1,0 +1,59 @@
+# =============================================================================
+# scLncR - Single-cell lncRNA Analysis Pipeline: prelnc Module Configuration
+# Purpose: Define input data paths, reference genome information, output settings, and runtime parameters.
+# Note:
+#   - Use absolute paths for all file/directory entries.
+#   - If delimiters are needed in identifiers, use only hyphens ("-").
+#     Avoid underscores ("_") or other special characters, as Seurat objects automatically
+#     replace them with hyphens, which may cause mismatches during downstream annotation.
+# =============================================================================
+
+# -----------------------------
+# 1. Input Data Settings
+# -----------------------------
+
+# Directory containing raw sample data (e.g., BAM/FASTQ files).
+# Each subdirectory under this path should correspond to one sample.
+samples_dirs: "/home/data/scLncR/data/paper_test/"
+
+# -----------------------------
+# 2. Project and Output Settings
+# -----------------------------
+
+# Project name (used for naming log files, intermediate results, and output directories).
+project_name: "scLncR"
+
+# Main output directory where all results from the prelnc module will be saved.
+output_path: "/home/data/scLncR/paper/paper_case"
+
+# -----------------------------
+# 3. Reference Genome and Annotation Files
+# -----------------------------
+
+# Path to the reference genome in FASTA format (used for sequence extraction, alignment, etc.).
+genome_file: "/home/data/scLncR/genome/TAIR10.fa"
+
+# Path to the gene annotation file in GTF format.
+# Recommended: Use authoritative sources such as Araport, Ensembl, or RefSeq.
+gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
+
+# -----------------------------
+# 4. lncRNA Naming Convention
+# -----------------------------
+
+# Custom prefix for newly predicted lncRNA identifiers (e.g., scLncR-AthLnc-0001).
+#  !!!Important:
+#   - Only use letters, digits, and hyphens ("-").
+#   - DO NOT use underscores ("_"), spaces, or other special characters.
+#   - Reason: Seurat internally normalizes non-hyphen delimiters to "-", which can lead to
+#     annotation mismatches or failed gene matching in downstream analysis.
+lncrna_name: "AthLnc"
+
+# -----------------------------
+# 5. Computational Resources
+# -----------------------------
+
+# Number of parallel threads to use for compute-intensive steps
+# (e.g., alignment, transcript assembly, feature counting).
+# Recommendation: Set to the number of physical CPU cores or slightly lower to avoid system overload.
+threads: 24
