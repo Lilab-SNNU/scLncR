@@ -40,7 +40,7 @@ If you do not have conda, you can also manually install the required R packages 
 - reshape2, version 1.4.4(https://cran.r-project.org/web/packages/reshape2/index.html)
 
 
-**Aligment Software**
+**Bioinformatics Software**
 - hisat2,  version  2.2.1(https://daehwankimlab.github.io/hisat2/)
 - stringtie,  version  2.2.3(https://ccb.jhu.edu/software/stringtie/)
 - gffcompare, version 0.12.6(https://ccb.jhu.edu/software/stringtie/gffcompare.shtml)
@@ -82,3 +82,10 @@ $ scLncR count -c scLncR/R/confings/config_Count.yaml
 $ scLncR dataProcess -c scLncR/R/confings/config_dataProcess.yaml
 $ scLncR function -c scLncR/R/confings/config_function.yaml
 ```
+### Run scLncR in graphical user interface(GUI) 
+   Step1:Open the shiny.R in Rstudio
+
+---
+## Contact us
+
+If you encounter any problems while using scLncR, please send an email (glli@snnu.edu.cn) or submit the issues on GitHub (https://github.com/Lilab-SNNU/scLcnR/issues) and we will resolve it as soon as possible.
