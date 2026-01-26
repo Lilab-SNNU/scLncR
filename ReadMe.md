@@ -18,6 +18,7 @@ You can configure scLncR environment using conda.
 $ cd scLncR
 $ conda create -f scLncR.yaml 
 $ conda activate scLncR
+$ export PATH="/path/to/scLncR:$PATH"
 ```
 
 If you do not have conda, you can also manually install the required R packages listed below.
@@ -48,3 +49,36 @@ If you do not have conda, you can also manually install the required R packages 
 ---
 
 ### Usage
+scLncR supports two modes of usage: command-line operation and a Shiny GUI interface.
+
+### Command-line usage:
+***scLncR Main Program***
+```shell
+$ scLncR -h
+scLncR v0.1.0 - Single-cell lncRNA Discovery Pipeline
+Usage: scLncR <command> [options]
+
+Available commands:
+  prelnc        Predict and annotate lncRNAs from single-nucleus RNA-seq data 
+  count         Get scRNA-seq expression count matrix 
+  dataProcess   ScRNA-seq expression count preprocess and annotation 
+  function      DownStream analysis to explore lncRNA function 
+
+Examples:
+  scLncR prelnc -c config.yaml
+  scLncR prelnc --help
+
+Options:
+  -h, --help    Show this global help message
+
+Note: Each command has its own --help. For example:
+      scLncR prelnc --help
+```
+scLncR allows each subroutine to accept corresponding parameters via YAML configuration files. Users can modify the settings according to the parameter specifications provided in each YAML file and then execute the program sequentially using the following command. Alternatively, they may run specific modules independently based on their needs.
+
+```shell
+$ scLncR prelnc -c scLncR/R/confings/config_LncPre.yaml
+$ scLncR count -c scLncR/R/confings/config_Count.yaml
+$ scLncR dataProcess -c scLncR/R/confings/config_dataProcess.yaml
+$ scLncR function -c scLncR/R/confings/config_function.yaml
+```
