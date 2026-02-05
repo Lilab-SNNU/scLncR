@@ -36,6 +36,7 @@ If you do not have conda, you can also manually install the required R packages 
 - seurat, version 4.3.0.1(https://satijalab.org/seurat/)
 - seuratobject, version 4.1.3(https://satijalab.org/seurat/)
 - monocle2, version 2.30.0(https://cole-trapnell-lab.github.io/monocle-release/docs/)
+- hdWGCNA, version 0.4.4(https://smorabit.github.io/hdWGCNA/)
 - stringr, version 1.5.1(https://cran.r-project.org/web/packages/stringr/index.html)
 - shiny, version 1.8.1.1(https://shiny.posit.co/)
 - shinyjs, version 2.1.0(https://cran.r-project.org/web/packages/shinyjs/index.html)
@@ -47,6 +48,8 @@ If you do not have conda, you can also manually install the required R packages 
 - ggplot2, version 3.5.1(https://ggplot2.tidyverse.org/)
 - patchwork, version 1.2.0(https://patchwork.data-imaginist.com/)
 - reshape2, version 1.4.4(https://cran.r-project.org/web/packages/reshape2/index.html)
+- yaml, version 2.3.10(https://cran.r-project.org/web/packages/yaml/index.html)
+- optparse, version 1.7.5(https://cran.r-project.org/web/packages/optparse/index.html)
 
 
 **Bioinformatics Software**
