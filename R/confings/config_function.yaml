@@ -1,55 +1,35 @@
 # =============================================================================
-# scLncR - Single-cell lncRNA Analysis Pipeline: prelnc Module Configuration
-# Purpose: Define input data paths, reference genome information, output settings, and runtime parameters.
-# Note:
-#   - Use absolute paths for all file/directory entries.
-#   - If delimiters are needed in identifiers, use only hyphens ("-").
-#     Avoid underscores ("_") or other special characters, as Seurat objects automatically
-#     replace them with hyphens, which may cause mismatches during downstream annotation.
+# scLncR - Configuration for LncExplore Module
+# Description: Parameters for Location Analysis, Monocle2 Trajectory, and WGCNA
 # =============================================================================
 
-# -----------------------------
-# 1. Input Data Settings
-# -----------------------------
+# Global input (REQUIRED)
+input_seurat: "path/to/integrated_seurat.rds"  # Path to preprocessed Seurat object
 
-# Directory containing raw sample data (e.g., BAM/FASTQ files).
-# Each subdirectory under this path should correspond to one sample.
-samples_dir: "/home/data/scLncR/data/paper_test/"
+# =============================================================================
+# Location Analysis Parameters
+# =============================================================================
+location:
+  LOG2FC_THRESH: 0.25      # Numeric: Log2FC threshold for differential expression
+  PADJ_THRESH: 0.05        # Numeric: Adjusted p-value threshold (0 < x <= 1)
+  output_path: "./location_results"  # String: Output directory for location analysis
+  lncRNA_name: "scLncR"    # String: Prefix for lncRNA naming (letters, digits, hyphens only)
 
-# -----------------------------
-# 2. Project and Output Settings
-# -----------------------------
+# =============================================================================
+# Monocle2 Trajectory Analysis Parameters
+# =============================================================================
+monocle2:
+  qval: 0.05                          # Numeric: Q-value threshold for DE genes (0 < x <= 1)
+  reduceDimensionMethod: "DDRTree"    # String: Dimension reduction method ("DDRTree", "ICA", "tSNE")
+  output_path: "./monocle2_results"   # String: Output directory
+  hub_genes: "all"                    # String: "all" or comma-separated gene list (e.g., "SOX2,POU5F1")
 
-# Project name (used for naming log files, intermediate results, and output directories).
-project_name: "scLncR"
-
-# Main output directory where all results from the prelnc module will be saved.
-output_path: "/home/data/scLncR/paper/paper_case/step2_count"
-
-# -----------------------------
-# 3. Reference Genome and Annotation Files
-# -----------------------------
-
-# Path to the reference genome in FASTA format (used for sequence extraction, alignment, etc.).
-genome: "/home/data/scLncR/genome/TAIR10.fa"
-
-# Path to the gene annotation file in GTF format.
-# Recommended: Use authoritative sources such as Araport, Ensembl, or RefSeq.
-gtf: "/home/data/scLncR/genome/Araport11_current.gtf"
-
-# -----------------------------
-# 4. lncRNA Annatation File
-# -----------------------------
-
-# Path to the lncRNA annotation file in GTF format. 
-# It is the result of prelnc step.
-lnc_gtf: "/home/data/scLncR/paper/paper_case/lnc_gtf"
-
-# -----------------------------
-# 5. Computational Resources
-# -----------------------------
-
-# Number of parallel threads to use for compute-intensive steps
-# (e.g., alignment, transcript assembly, feature counting).
-# Recommendation: Set to the number of physical CPU cores or slightly lower to avoid system overload.
-threads: 24
+# =============================================================================
+# WGCNA Co-expression Network Parameters
+# =============================================================================
+wgcna:
+  output_path: "./wgcna_results"      # String: Output directory
+  cell_types: ["T_cell", "B_cell"]    # List: Cell types to include (empty list = all types)
+  pro_name: "scLncR"                  # String: Project prefix for module naming
+  lnc_name: "AthLnc"                  # String: lncRNA prefix filter (empty = no filter)
+  gene_select_method: "fraction"      # String: "fraction" (top fraction) or "variance" (highly variable)
