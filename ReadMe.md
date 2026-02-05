@@ -20,6 +20,15 @@ $ conda create -f scLncR.yaml
 $ conda activate scLncR
 $ export PATH="/path/to/scLncR:$PATH"
 ```
+The R package of hdWGCNA need install independent in terminal or Rstudio.
+```R
+# install Bioconductor
+install.packages("BiocManager")
+BiocManager::install()
+
+# install hdWGCNA from GitHub
+devtools::install_github('smorabit/hdWGCNA', ref='dev')
+```
 
 If you do not have conda, you can also manually install the required R packages listed below.
 

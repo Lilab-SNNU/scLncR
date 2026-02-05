@@ -175,7 +175,7 @@ run_prelnc <- function(user_args, script_dir) {
                       lncRNA_name=lncrna_name,
                       merge_name=project_name,
                       threads=threads,
-                      output_file="./lnc_gtf")
+                      output_file="./final_lnc.gtf")
   print("####################***Function LncRNA Predict done***####################")
 }
 

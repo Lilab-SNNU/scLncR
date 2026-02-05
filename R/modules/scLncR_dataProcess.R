@@ -502,7 +502,7 @@ run_dataProcess <- function(user_args, script_dir) {
     # Extract parameters (optional: you can just pass cfg directly to functions)
     counts_dir <- cfg$counts_dir
     mt_name  <- cfg$mt_name
-    min.RNAs    <- cfg$min.RNAs
+    min.RNAs <- cfg$min.RNAs
     max.RNAs <- cfg$max.RNAs
     pct.mt  <- cfg$percent.mt
     lnc_name      <- cfg$lnc_name

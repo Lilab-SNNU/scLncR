@@ -108,6 +108,7 @@ LocationAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, outp
     ), file = "nuc_vs_cyto_results/gene_classification.rds")
 
     write.csv(summary_list, "nuc_vs_cyto_results/gene_category_summary.csv", row.names = FALSE)
+    write.csv(deg_full_list, "nuc_vs_cyto_results.csv")
 
     # ------------------------------------------------------------
     # 1: Draw a percentage stack plot of nuclear vs. cytoplasmic genes based on cellotype (excluding Balanced)
@@ -270,7 +271,7 @@ LocationAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, outp
           title = paste("Nuclear vs Cytoplasmic Enriched", lncRNA_name, "by Cell Type"),
           x = "Cell Type",
           y = "Proportion of", lncRNA_name, "Genes",
-          fill = "Gene Localization"
+          fill = "lncRNAs Localization"
         ) +
         theme_minimal(base_size = 10) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1))
@@ -550,7 +551,7 @@ DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR",
     # rename the modules
     seu_obj <- ResetModuleNames(
         seu_obj,
-        new_name = paste0(pro_name, "_NEW")
+        new_name = paste0(pro_name, "_Module")
     )
     
     # plot genes ranked by kME for each module
