@@ -637,3 +637,208 @@ DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR",
     saveRDS(seu_obj, file=paste0(output_path, "/seu_wgcna.RDS"))
     return(seu_obj)
 }
+
+# =============================================================================
+# scLncR - Main Runner for LncExplore Module
+# =============================================================================
+
+run_function <- function(args, script_dir) {
+  # Load required packages
+  if (!requireNamespace("optparse", quietly = TRUE)) {
+    stop("Package 'optparse' is required. Install with: install.packages('optparse')")
+  }
+  
+  # -----------------------------
+  # 1. Define CLI options
+  # -----------------------------
+  option_list <- list(
+    optparse::make_option(
+      c("-c", "--config"),
+      type = "character",
+      help = "Path to LncExplore YAML configuration file",
+      metavar = "FILE"
+    )
+  )
+  
+  parser <- optparse::OptionParser(
+    usage = "[options]",
+    option_list = option_list,
+    description = "function explore: Spatial localization, trajectory inference, and co-expression network analysis for lncRNAs"
+  )
+  
+  # Print help if requested or no args
+  if (length(args) == 0 || "--help" %in% args || "-h" %in% args) {
+    cat("\nUsage: scLncR LncExplore [options]\n")
+    cat("LncExplore: Multi-modal lncRNA functional exploration pipeline\n\n")
+    optparse::print_help(parser)
+    q(status = 0)
+  }
+  
+  # Parse arguments
+  opt <- optparse::parse_args(parser, args = args, print_help_and_exit = FALSE)
+  
+  if (is.null(opt$config)) {
+    stop("Configuration file must be specified via -c/--config")
+  }
+  
+  config_path <- normalizePath(opt$config, mustWork = TRUE)
+  
+  # -----------------------------
+  # 2. Load config (with dynamic validation)
+  # -----------------------------
+  config_loader_path <- file.path(script_dir, "R", "utils", "config_loader_LncExplore.R")
+  if (!file.exists(config_loader_path)) {
+    stop("Config loader not found: ", config_loader_path)
+  }
+  source(config_loader_path, local = TRUE)
+  
+  cfg <- load_LncExplore_config(config_path)
+  
+  # -----------------------------
+  # 3. Load input Seurat object
+  # -----------------------------
+  message("\n📦 Loading input Seurat object...")
+  if (!file.exists(cfg$input_seurat)) {
+    stop("Input Seurat object not found: ", cfg$input_seurat)
+  }
+  seu_obj <- readRDS(cfg$input_seurat)
+  message("✅ Loaded Seurat object with ", ncol(seu_obj), " cells and ", nrow(seu_obj), " features")
+  
+  # -----------------------------
+  # 4. Module execution dispatcher (with error isolation)
+  # -----------------------------
+  results <- list(
+    location = NULL,
+    monocle2 = NULL,
+    wgcna = NULL,
+    errors = character()
+  )
+  
+  # Helper: Safe module executor
+  run_module_safely <- function(module_name, func_name, params, cfg_section) {
+    message("\n", strrep("=", 60))
+    message("🚀 STARTING MODULE: ", toupper(module_name))
+    message(strrep("=", 60))
+    
+    # Check function availability
+    if (!exists(func_name, mode = "function")) {
+      err_msg <- sprintf(
+        "❌ MODULE FAILED: '%s' function not found. Ensure analysis functions are sourced.",
+        func_name
+      )
+      message(err_msg)
+      results$errors <<- c(results$errors, paste(module_name, ":", err_msg))
+      return(FALSE)
+    }
+    
+    # Execute with error capture
+    tryCatch({
+      do.call(func_name, params)
+      message("\n✅ MODULE COMPLETED: ", toupper(module_name))
+      TRUE
+    }, error = function(e) {
+      err_detail <- sprintf(
+        "❌ MODULE FAILED: %s | Error: %s",
+        module_name,
+        conditionMessage(e)
+      )
+      message("\n", err_detail)
+      results$errors <<- c(results$errors, paste(module_name, ":", conditionMessage(e)))
+      FALSE
+    })
+  }
+  
+  # -----------------------------
+  # 5. Execute selected modules
+  # -----------------------------
+  modules_to_run <- cfg$.run_modules  # Injected by config loader
+  
+  if ("location" %in% modules_to_run) {
+    params_loc <- list(
+      seu_obj = seu_obj,
+      LOG2FC_THRESH = cfg$location$LOG2FC_THRESH,
+      PADJ_THRESH = cfg$location$PADJ_THRESH,
+      output_path = cfg$location$output_path,
+      lncRNA_name = cfg$location$lncRNA_name
+    )
+    results$location <- run_module_safely(
+      "Location Analysis", 
+      "LocationAnalysis", 
+      params_loc,
+      cfg$location
+    )
+  }
+  
+  if ("monocle2" %in% modules_to_run) {
+    # Parse hub_genes: "all" → "all", else split to vector
+    hub_genes_val <- if (tolower(cfg$monocle2$hub_genes) == "all") {
+      "all"
+    } else {
+      trimws(unlist(strsplit(cfg$monocle2$hub_genes, ",")))
+    }
+    
+    params_mono <- list(
+      seu_obj = seu_obj,
+      qval = cfg$monocle2$qval,
+      reduceDimensionMethod = cfg$monocle2$reduceDimensionMethod,
+      output_path = cfg$monocle2$output_path,
+      hub_genes = hub_genes_val
+    )
+    results$monocle2 <- run_module_safely(
+      "Monocle2 Trajectory", 
+      "monocle2_analysis", 
+      params_mono,
+      cfg$monocle2
+    )
+  }
+  
+  if ("wgcna" %in% modules_to_run) {
+    # Normalize cell_types: handle empty list/vector
+    cell_types_val <- if (is.null(cfg$wgcna$cell_types) || length(cfg$wgcna$cell_types) == 0) {
+      character(0)
+    } else {
+      as.character(unlist(cfg$wgcna$cell_types))
+    }
+    
+    params_wgcna <- list(
+      seu_obj = seu_obj,
+      output_path = cfg$wgcna$output_path,
+      cell_types = cell_types_val,
+      pro_name = cfg$wgcna$pro_name,
+      lnc_name = cfg$wgcna$lnc_name,
+      gene_select_method = cfg$wgcna$gene_select_method
+    )
+    results$wgcna <- run_module_safely(
+      "WGCNA Network", 
+      "DO_WGCNA", 
+      params_wgcna,
+      cfg$wgcna
+    )
+  }
+  
+  # -----------------------------
+  # 6. Final summary report
+  # -----------------------------
+  message("\n", strrep("=", 60))
+  message("📊 LNC EXPLORE PIPELINE SUMMARY")
+  message(strrep("=", 60))
+  
+  total <- length(modules_to_run)
+  succeeded <- sum(unlist(results[modules_to_run]), na.rm = TRUE)
+  failed <- total - succeeded
+  
+  message(sprintf("• Modules scheduled : %d", total))
+  message(sprintf("• Modules succeeded : %d ✅", succeeded))
+  message(sprintf("• Modules failed    : %d ❌", failed))
+  
+  if (failed > 0) {
+    message("\n⚠️  FAILED MODULES DETAILS:")
+    for (err in results$errors) {
+      message("  - ", err)
+    }
+    stop("Pipeline completed with errors. Check logs above for details.")
+  } else {
+    message("\n🎉 ALL SELECTED MODULES COMPLETED SUCCESSFULLY!")
+    message("   Results saved to respective output directories specified in config.")
+  }
+}

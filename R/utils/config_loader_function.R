@@ -15,7 +15,7 @@ load_LncExplore_config <- function(config_path) {
   cfg <- yaml::read_yaml(config_path)
   
   # -----------------------------
-  # 1. 全局必需参数：input_seurat（所有模块依赖）
+  # 1. Required global parameter: input_seurat (depends on all modules)
   # -----------------------------
   if (is.null(cfg$input_seurat) || !file.exists(cfg$input_seurat)) {
     stop("Global parameter 'input_seurat' is required and must be a valid path.")
@@ -25,7 +25,7 @@ load_LncExplore_config <- function(config_path) {
   }
 
   # -----------------------------
-  # 2. 确定要运行的模块（支持灵活配置）
+  # 2. Determine the modules to run (flexible configuration supported)
   # -----------------------------
   ALL_MODULES <- c("location", "monocle2", "wgcna")
   
@@ -34,12 +34,12 @@ load_LncExplore_config <- function(config_path) {
             paste(ALL_MODULES, collapse = ", "))
     run_modules <- ALL_MODULES
   } else {
-    # 标准化：转小写 + 去重
+    # Standardization: Convert to lowercase + Deduplication
     run_modules <- unique(tolower(trimws(unlist(strsplit(
       paste(cfg$run_modules, collapse = ","), ","
     )))))
     
-    # 验证模块名有效性
+    # Validate module name
     invalid <- setdiff(run_modules, ALL_MODULES)
     if (length(invalid) > 0) {
       stop("Invalid module(s) in 'run_modules': ", paste(invalid, collapse = ", "), 
@@ -49,9 +49,9 @@ load_LncExplore_config <- function(config_path) {
   }
   
   # -----------------------------
-  # 3. 按需校验各模块（仅校验 run_modules 中的模块）
+  # 3. Validate each module as needed (only validate modules in run_modules).
   # -----------------------------
-  # 封装校验逻辑为内部函数（保持主流程清晰）
+  # The validation logic is encapsulated as an internal function (to keep the main flow clear).
   validate_location <- function(loc_cfg) {
     req <- c("LOG2FC_THRESH", "PADJ_THRESH", "output_path", "lncRNA_name")
     if (any(!req %in% names(loc_cfg))) stop("Missing required 'location' parameters")
@@ -76,12 +76,12 @@ load_LncExplore_config <- function(config_path) {
     if (!wgcna_cfg$gene_select_method %in% c("fraction", "variance")) 
       stop("Invalid 'wgcna$gene_select_method'")
     if (!dir.exists(dirname(wgcna_cfg$output_path))) dir.create(dirname(wgcna_cfg$output_path), recursive = TRUE)
-    # cell_types 和 lnc_name 可为空，仅校验类型
+    # cell_types and lnc_name can be empty; only the type is checked.
     if (!is.null(wgcna_cfg$cell_types) && !is.character(unlist(wgcna_cfg$cell_types))) 
       stop("'wgcna$cell_types' must be character vector or list")
   }
   
-  # 执行动态校验
+  # Perform dynamic verification
   if ("location" %in% run_modules) {
     if (is.null(cfg$location)) stop("Module 'location' selected but 'location' section missing in config")
     validate_location(cfg$location)
@@ -101,9 +101,9 @@ load_LncExplore_config <- function(config_path) {
   }
   
   # -----------------------------
-  # 4. 注入运行计划到配置（供 run_LncExplore.R 使用）
+  # 4. Inject the runtime plan into the configuration (for use by run_LncExplore.R)
   # -----------------------------
-  cfg$.run_modules <- run_modules  # 私有字段，标记实际要运行的模块
+  cfg$.run_modules <- run_modules  # Private field, marking the actual module to be run.
   
   message("\n✨ Configuration validated successfully for modules: ", 
           paste(run_modules, collapse = ", "))
