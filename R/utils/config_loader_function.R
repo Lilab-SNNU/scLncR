@@ -1,172 +1,112 @@
 # =============================================================================
-# scLncR - Configuration Loader & Validator for LncExplore Module
+# scLncR - Smart Config Loader for LncExplore (Dynamic Module Validation)
 # Author: [Yin SW]
-# Description: Safely loads and validates nested YAML config for Location/Monocle2/WGCNA analyses.
+# Description: Validates ONLY parameters for modules specified in run_modules.
 # Dependencies: yaml
 # =============================================================================
 
 
 load_LncExplore_config <- function(config_path) {
-  # Load required packages
   if (!requireNamespace("yaml", quietly = TRUE)) {
-    stop("Package 'yaml' is required but not installed. Please run: install.packages('yaml')")
+    stop("Package 'yaml' is required. Install with: install.packages('yaml')")
   }
-
-  # Check if config file exists
-  if (!file.exists(config_path)) {
-    stop("Configuration file not found: ", config_path)
-  }
-
-  # Read YAML
+  if (!file.exists(config_path)) stop("Config file not found: ", config_path)
+  
   cfg <- yaml::read_yaml(config_path)
-
+  
   # -----------------------------
-  # Required top-level fields
+  # 1. 全局必需参数：input_seurat（所有模块依赖）
   # -----------------------------
-  required_top <- c("input_seurat", "location", "monocle2", "wgcna")
-  missing_top <- setdiff(required_top, names(cfg))
-  if (length(missing_top) > 0) {
-    stop("Missing required top-level configuration sections: ", paste(missing_top, collapse = ", "))
-  }
-
-  # -----------------------------
-  # Global input validation
-  # -----------------------------
-  if (!file.exists(cfg$input_seurat)) {
-    stop("Input Seurat object not found: ", cfg$input_seurat)
+  if (is.null(cfg$input_seurat) || !file.exists(cfg$input_seurat)) {
+    stop("Global parameter 'input_seurat' is required and must be a valid path.")
   }
   if (!grepl("\\.rds$", cfg$input_seurat, ignore.case = TRUE)) {
-    warning("Input file does not have .rds extension. Ensure it is a valid Seurat object.")
+    warning("Input file lacks .rds extension. Verify it is a Seurat object.")
   }
 
   # -----------------------------
-  # Helper: Validate numeric in range
+  # 2. 确定要运行的模块（支持灵活配置）
   # -----------------------------
-  validate_numeric_range <- function(x, name, min_val = -Inf, max_val = Inf, allow_zero = FALSE) {
-    if (!is.numeric(x) || length(x) != 1 || is.na(x)) {
-      stop("'", name, "' must be a single numeric value.")
+  ALL_MODULES <- c("location", "monocle2", "wgcna")
+  
+  if (is.null(cfg$run_modules) || length(cfg$run_modules) == 0) {
+    message("⚠️  No 'run_modules' specified. Defaulting to ALL modules: ", 
+            paste(ALL_MODULES, collapse = ", "))
+    run_modules <- ALL_MODULES
+  } else {
+    # 标准化：转小写 + 去重
+    run_modules <- unique(tolower(trimws(unlist(strsplit(
+      paste(cfg$run_modules, collapse = ","), ","
+    )))))
+    
+    # 验证模块名有效性
+    invalid <- setdiff(run_modules, ALL_MODULES)
+    if (length(invalid) > 0) {
+      stop("Invalid module(s) in 'run_modules': ", paste(invalid, collapse = ", "), 
+           ". Valid options: ", paste(ALL_MODULES, collapse = ", "))
     }
-    lower_bound <- if (allow_zero) min_val else max(min_val, .Machine$double.eps)
-    if (x < lower_bound || x > max_val) {
-      stop("'", name, "' must be in range (", 
-           ifelse(allow_zero, "[", "("), lower_bound, ", ", max_val, 
-           ifelse(max_val == Inf, ")", "]"), ". Got: ", x)
-    }
+    message("✅ Running selected modules: ", paste(run_modules, collapse = ", "))
   }
-
+  
   # -----------------------------
-  # Location Analysis Validation
+  # 3. 按需校验各模块（仅校验 run_modules 中的模块）
   # -----------------------------
-  loc <- cfg$location
-  required_loc <- c("LOG2FC_THRESH", "PADJ_THRESH", "output_path", "lncRNA_name")
-  missing_loc <- setdiff(required_loc, names(loc))
-  if (length(missing_loc) > 0) stop("Missing 'location' parameters: ", paste(missing_loc, collapse = ", "))
-  
-  validate_numeric_range(loc$LOG2FC_THRESH, "location$LOG2FC_THRESH", min_val = 0)
-  validate_numeric_range(loc$PADJ_THRESH, "location$PADJ_THRESH", min_val = 0, max_val = 1)
-  
-  if (!is.character(loc$output_path) || nchar(loc$output_path) == 0) {
-    stop("'location$output_path' must be a non-empty string.")
-  }
-  if (!dir.exists(dirname(loc$output_path))) {
-    message("Creating location output directory parent: ", dirname(loc$output_path))
-    dir.create(dirname(loc$output_path), recursive = TRUE)
+  # 封装校验逻辑为内部函数（保持主流程清晰）
+  validate_location <- function(loc_cfg) {
+    req <- c("LOG2FC_THRESH", "PADJ_THRESH", "output_path", "lncRNA_name")
+    if (any(!req %in% names(loc_cfg))) stop("Missing required 'location' parameters")
+    if (loc_cfg$LOG2FC_THRESH <= 0) stop("'location$LOG2FC_THRESH' must be > 0")
+    if (loc_cfg$PADJ_THRESH <= 0 || loc_cfg$PADJ_THRESH > 1) stop("'location$PADJ_THRESH' must be in (0,1]")
+    if (grepl("[^a-zA-Z0-9-]", loc_cfg$lncRNA_name)) stop("Invalid chars in lncRNA_name")
+    if (!dir.exists(dirname(loc_cfg$output_path))) dir.create(dirname(loc_cfg$output_path), recursive = TRUE)
   }
   
-  if (!is.character(loc$lncRNA_name) || nchar(loc$lncRNA_name) == 0) {
-    stop("'location$lncRNA_name' must be a non-empty string.")
+  validate_monocle2 <- function(mono_cfg) {
+    req <- c("qval", "reduceDimensionMethod", "output_path", "hub_genes")
+    if (any(!req %in% names(mono_cfg))) stop("Missing required 'monocle2' parameters")
+    if (mono_cfg$qval <= 0 || mono_cfg$qval > 1) stop("'monocle2$qval' must be in (0,1]")
+    if (!mono_cfg$reduceDimensionMethod %in% c("DDRTree", "ICA", "tSNE")) 
+      stop("Invalid 'monocle2$reduceDimensionMethod'")
+    if (!dir.exists(dirname(mono_cfg$output_path))) dir.create(dirname(mono_cfg$output_path), recursive = TRUE)
   }
-  if (grepl("[^a-zA-Z0-9-]", loc$lncRNA_name)) {
-    stop(
-      "Invalid characters in 'location$lncRNA_name': '", loc$lncRNA_name, "'. ",
-      "Only letters, digits, and hyphens ('-') are allowed."
-    )
+  
+  validate_wgcna <- function(wgcna_cfg) {
+    req <- c("output_path", "pro_name", "gene_select_method")
+    if (any(!req %in% names(wgcna_cfg))) stop("Missing required 'wgcna' parameters")
+    if (!wgcna_cfg$gene_select_method %in% c("fraction", "variance")) 
+      stop("Invalid 'wgcna$gene_select_method'")
+    if (!dir.exists(dirname(wgcna_cfg$output_path))) dir.create(dirname(wgcna_cfg$output_path), recursive = TRUE)
+    # cell_types 和 lnc_name 可为空，仅校验类型
+    if (!is.null(wgcna_cfg$cell_types) && !is.character(unlist(wgcna_cfg$cell_types))) 
+      stop("'wgcna$cell_types' must be character vector or list")
   }
-
+  
+  # 执行动态校验
+  if ("location" %in% run_modules) {
+    if (is.null(cfg$location)) stop("Module 'location' selected but 'location' section missing in config")
+    validate_location(cfg$location)
+    message("✓ Validated: Location Analysis parameters")
+  }
+  
+  if ("monocle2" %in% run_modules) {
+    if (is.null(cfg$monocle2)) stop("Module 'monocle2' selected but 'monocle2' section missing in config")
+    validate_monocle2(cfg$monocle2)
+    message("✓ Validated: Monocle2 Trajectory parameters")
+  }
+  
+  if ("wgcna" %in% run_modules) {
+    if (is.null(cfg$wgcna)) stop("Module 'wgcna' selected but 'wgcna' section missing in config")
+    validate_wgcna(cfg$wgcna)
+    message("✓ Validated: WGCNA parameters")
+  }
+  
   # -----------------------------
-  # Monocle2 Analysis Validation
+  # 4. 注入运行计划到配置（供 run_LncExplore.R 使用）
   # -----------------------------
-  mono <- cfg$monocle2
-  required_mono <- c("qval", "reduceDimensionMethod", "output_path", "hub_genes")
-  missing_mono <- setdiff(required_mono, names(mono))
-  if (length(missing_mono) > 0) stop("Missing 'monocle2' parameters: ", paste(missing_mono, collapse = ", "))
+  cfg$.run_modules <- run_modules  # 私有字段，标记实际要运行的模块
   
-  validate_numeric_range(mono$qval, "monocle2$qval", min_val = 0, max_val = 1)
-  
-  allowed_methods <- c("DDRTree", "ICA", "tSNE")
-  if (!mono$reduceDimensionMethod %in% allowed_methods) {
-    stop(
-      "Invalid 'monocle2$reduceDimensionMethod': '", mono$reduceDimensionMethod, "'. ",
-      "Must be one of: ", paste(allowed_methods, collapse = ", ")
-    )
-  }
-  
-  if (!is.character(mono$output_path) || nchar(mono$output_path) == 0) {
-    stop("'monocle2$output_path' must be a non-empty string.")
-  }
-  if (!dir.exists(dirname(mono$output_path))) {
-    message("Creating Monocle2 output directory parent: ", dirname(mono$output_path))
-    dir.create(dirname(mono$output_path), recursive = TRUE)
-  }
-  
-  if (!is.character(mono$hub_genes) || nchar(mono$hub_genes) == 0) {
-    stop("'monocle2$hub_genes' must be a non-empty string ('all' or comma-separated genes).")
-  }
-
-  # -----------------------------
-  # WGCNA Analysis Validation
-  # -----------------------------
-  wgcna <- cfg$wgcna
-  required_wgcna <- c("output_path", "cell_types", "pro_name", "lnc_name", "gene_select_method")
-  missing_wgcna <- setdiff(required_wgcna, names(wgcna))
-  if (length(missing_wgcna) > 0) stop("Missing 'wgcna' parameters: ", paste(missing_wgcna, collapse = ", "))
-  
-  if (!is.character(wgcna$output_path) || nchar(wgcna$output_path) == 0) {
-    stop("'wgcna$output_path' must be a non-empty string.")
-  }
-  if (!dir.exists(dirname(wgcna$output_path))) {
-    message("Creating WGCNA output directory parent: ", dirname(wgcna$output_path))
-    dir.create(dirname(wgcna$output_path), recursive = TRUE)
-  }
-  
-  # cell_types: accept empty list or character vector
-  if (!is.null(wgcna$cell_types)) {
-    if (is.character(wgcna$cell_types)) {
-      wgcna$cell_types <- trimws(unlist(strsplit(wgcna$cell_types, ",")))
-    } else if (is.list(wgcna$cell_types)) {
-      wgcna$cell_types <- unlist(wgcna$cell_types)
-    }
-    if (length(wgcna$cell_types) > 0 && !is.character(wgcna$cell_types)) {
-      stop("'wgcna$cell_types' must be a character vector or empty list.")
-    }
-    cfg$wgcna$cell_types <- wgcna$cell_types  # Update normalized value
-  }
-  
-  if (!is.character(wgcna$pro_name) || nchar(wgcna$pro_name) == 0) {
-    stop("'wgcna$pro_name' must be a non-empty string.")
-  }
-  if (!is.character(wgcna$lnc_name)) {
-    stop("'wgcna$lnc_name' must be a string (can be empty).")
-  }
-  
-  allowed_select <- c("fraction", "variance")
-  if (!wgcna$gene_select_method %in% allowed_select) {
-    stop(
-      "Invalid 'wgcna$gene_select_method': '", wgcna$gene_select_method, "'. ",
-      "Must be one of: ", paste(allowed_select, collapse = ", ")
-    )
-  }
-
-  # -----------------------------
-  # Finalize
-  # -----------------------------
-  message("✅ LncExplore configuration loaded successfully from: ", config_path)
+  message("\n✨ Configuration validated successfully for modules: ", 
+          paste(run_modules, collapse = ", "))
+  message("   Input Seurat: ", cfg$input_seurat)
   return(cfg)
 }
-
-# =============================================================================
-# Example usage:
-# =============================================================================
-# config <- load_LncExplore_config("config_LncExplore.yaml")
-# print(config$location$LOG2FC_THRESH)
-# =============================================================================

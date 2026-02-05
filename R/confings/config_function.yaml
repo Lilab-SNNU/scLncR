@@ -5,6 +5,7 @@
 
 # Global input (REQUIRED)
 input_seurat: "path/to/integrated_seurat.rds"  # Path to preprocessed Seurat object
+run_modules: ["location", "monocle2", "wgcna"]  # Modules need analysis (empty list = all modules)
 
 # =============================================================================
 # Location Analysis Parameters
