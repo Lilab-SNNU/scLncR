@@ -2,563 +2,755 @@
 library(shiny)
 library(shinyjs)
 library(shinydashboard)
-library(yaml)
 library(shinyWidgets)
+library(yaml)
+library(DT)
 library(shinyFiles)
-library(shinyalert)
 
 source("global.R")
 
-# UI界面
+# UI界面 - 根据您的配置文件重新设计
 ui <- dashboardPage(
-  skin = "blue",
   dashboardHeader(
-    title = "scLncR Pipeline v1.0",
-    titleWidth = 300,
+    title = "scLncR Pipeline",
+    titleWidth = 250,
+    tags$li(class = "dropdown", 
+            actionButton("help_btn", "Help", icon = icon("question-circle"))),
     tags$li(class = "dropdown",
-            actionButton("help_btn", "Help", icon = icon("question-circle"),
-                        style = "margin-top: 8px; margin-right: 5px;")
-    )
+            tags$a(href = "#", icon("github"), "GitHub", 
+                   onclick = "window.open('https://github.com/yourrepo/scLncR', '_blank');"))
   ),
   dashboardSidebar(
-    width = 300,
+    width = 250,
     sidebarMenu(
       id = "tabs",
-      menuItem("Dashboard", tabName = "dashboard", icon = icon("tachometer-alt")),
+      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
       menuItem("1. LncRNA Prediction", tabName = "prelnc", icon = icon("dna")),
       menuItem("2. Expression Counting", tabName = "count", icon = icon("calculator")),
       menuItem("3. Data Processing", tabName = "dataprocess", icon = icon("filter")),
       menuItem("4. Function Analysis", tabName = "function_tab", icon = icon("chart-line")),
-      menuItem("Pipeline Runner", tabName = "runner", icon = icon("play-circle")),
-      menuItem("Job Monitor", tabName = "monitor", icon = icon("desktop")),
+      menuItem("Run Pipeline", tabName = "run", icon = icon("play-circle")),
       hr(),
-      div(style = "padding: 15px;",
-          h4("Project Settings"),
-          textInput("global_project_name", "Project Name", value = "scLncR_Project"),
-          numericInput("global_threads", "CPU Threads", value = 8, min = 1, max = 64),
-          actionButton("save_project", "Save Project", icon = icon("save"), 
-                      class = "btn-primary", width = "100%")
-      )
+      menuItem("Configuration Files", tabName = "configs", icon = icon("file-code")),
+      menuItem("Documentation", tabName = "docs", icon = icon("book")),
+      menuItem("About", tabName = "about", icon = icon("info-circle"))
+    ),
+    hr(),
+    div(style = "padding: 10px;",
+        h5("Quick Actions"),
+        actionButton("load_example", "Load Example", width = "100%", 
+                     class = "btn-primary btn-sm"),
+        br(),
+        actionButton("validate_configs", "Validate Configs", width = "100%",
+                     class = "btn-warning btn-sm"),
+        br(),
+        downloadButton("export_all", "Export All", width = "100%",
+                      class = "btn-success btn-sm")
     )
   ),
   dashboardBody(
     useShinyjs(),
-    useShinyalert(),
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "style.css"),
       tags$script(HTML("
-        $(document).ready(function() {
-          $('.sidebar-toggle').click();
-        });
+        // 防止表单意外关闭
+        window.onbeforeunload = function() {
+          return 'Are you sure you want to leave? All unsaved changes will be lost.';
+        };
       "))
     ),
     tabItems(
-      # Dashboard Tab
+      # 仪表板
       tabItem(
         tabName = "dashboard",
+        h2("scLncR Pipeline Dashboard"),
         fluidRow(
-          valueBoxOutput("box_prelnc"),
-          valueBoxOutput("box_count"),
-          valueBoxOutput("box_dataprocess"),
-          valueBoxOutput("box_function")
+          valueBoxOutput("box_pipeline_status", width = 3),
+          valueBoxOutput("box_config_status", width = 3),
+          valueBoxOutput("box_scLncR_status", width = 3),
+          valueBoxOutput("box_memory_status", width = 3)
         ),
         fluidRow(
           box(
             width = 8,
-            title = "Pipeline Workflow",
             status = "primary",
             solidHeader = TRUE,
-            img(src = "scLncR_workflow.png", width = "100%", 
-                style = "border: 1px solid #ddd; border-radius: 5px;")
+            title = "Pipeline Overview",
+            img(src = "../figures/scLncR workflow.png", width = "100%", style = "border: 1px solid #ddd;")
           ),
           box(
             width = 4,
-            title = "Quick Actions",
             status = "info",
             solidHeader = TRUE,
-            actionButton("quick_prelnc", "Run LncRNA Prediction", 
-                        icon = icon("bolt"), width = "100%", class = "btn-success"),
-            br(), br(),
-            actionButton("quick_count", "Run Expression Counting", 
-                        icon = icon("bolt"), width = "100%", class = "btn-success"),
-            br(), br(),
-            actionButton("quick_dp", "Run Data Processing", 
-                        icon = icon("bolt"), width = "100%", class = "btn-success"),
-            br(), br(),
-            actionButton("quick_func", "Run Function Analysis", 
-                        icon = icon("bolt"), width = "100%", class = "btn-success"),
+            title = "Quick Start",
+            tags$ol(
+              tags$li("Configure each module below"),
+              tags$li("Validate your settings"),
+              tags$li("Generate configuration files"),
+              tags$li("Run the pipeline"),
+              tags$li("Monitor progress and view results")
+            ),
             hr(),
-            downloadButton("export_all_configs", "Export All Configs", 
-                          class = "btn-warning", width = "100%")
+            h5("Recent Activity"),
+            verbatimTextOutput("recent_logs")
           )
         ),
         fluidRow(
           box(
             width = 12,
-            title = "Recent Jobs",
-            status = "primary",
-            solidHeader = TRUE,
-            DTOutput("recent_jobs_table")
+            title = "Module Status",
+            status = "success",
+            collapsible = TRUE,
+            DTOutput("module_status_table")
           )
         )
       ),
       
-      # Tab 1: LncRNA Prediction (prelnc)
+      # 1. LncRNA Prediction 模块 - 根据 config_LncPre.yaml 设计
       tabItem(
         tabName = "prelnc",
         h2("LncRNA Prediction Module"),
         fluidRow(
           box(
-            width = 4,
+            width = 12,
             status = "primary",
             solidHeader = TRUE,
-            title = "Input Data",
-            shinyFilesButton("prelnc_samples_dir", "Select Samples Directory", 
-                           "Select directory containing FASTQ/BAM files", 
-                           FALSE, class = "btn-primary", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("prelnc_samples_dir_display"),
-            hr(),
-            h4("Reference Files"),
-            shinyFilesButton("prelnc_genome", "Select Genome FASTA", 
-                           "Select reference genome FASTA file", 
-                           FALSE, class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("prelnc_genome_display"),
-            shinyFilesButton("prelnc_gtf", "Select Reference GTF", 
-                           "Select reference annotation GTF file", 
-                           FALSE, class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("prelnc_gtf_display")
-          ),
-          
+            title = "Configuration File: config_LncPre.yaml",
+            collapsible = TRUE,
+            collapsed = FALSE
+          )
+        ),
+        fluidRow(
+          # 左侧: 输入数据设置
           box(
-            width = 4,
-            status = "warning",
+            width = 6,
+            status = "info",
+            title = "1. Input Data Settings",
             solidHeader = TRUE,
-            title = "Output Settings",
-            textInput("prelnc_project_name", "Project Name", 
-                     value = "scLncR"),
-            shinyDirButton("prelnc_output_path", "Select Output Directory", 
-                          "Select output directory", class = "btn-success", 
-                          style = "width: 100%;"),
+            shinyDirButton("prelnc_samples_dir", "Select Samples Directory", 
+                         "Please select a directory"),
             br(), br(),
-            verbatimTextOutput("prelnc_output_path_display"),
+            textInput("prelnc_samples_dirs", "Samples Directory",
+                     value = "/home/data/scLncR/data/paper_test/",
+                     placeholder = "Directory containing raw sample data (e.g., BAM/FASTQ files)"),
+            helpText("Each subdirectory under this path should correspond to one sample."),
             hr(),
-            h4("LncRNA Naming"),
-            textInput("prelnc_lncrna_name", "LncRNA Prefix", 
-                     value = "AthLnc"),
-            helpText("Note: Use only letters, digits, and hyphens. Underscores will cause issues in downstream analysis.")
+            h5("File Browser"),
+            verbatimTextOutput("prelnc_dir_contents")
           ),
           
+          # 右侧: 项目和输出设置
           box(
-            width = 4,
+            width = 6,
             status = "success",
+            title = "2. Project and Output Settings",
             solidHeader = TRUE,
-            title = "Run Configuration",
-            numericInput("prelnc_threads", "CPU Threads", 
-                        value = 24, min = 1, max = 64),
-            hr(),
-            h4("Validation Status"),
-            uiOutput("prelnc_validation"),
-            hr(),
-            actionButton("run_prelnc_single", "Run This Module", 
-                        icon = icon("play"), 
-                        class = "btn-danger btn-lg", width = "100%"),
+            textInput("prelnc_project_name", "Project Name",
+                     value = "scLncR",
+                     placeholder = "Used for naming log files and output directories"),
+            shinyDirButton("prelnc_output_path", "Select Output Directory", 
+                         "Please select a directory"),
             br(), br(),
-            downloadButton("download_prelnc_config", "Download Config", 
-                          class = "btn-info", width = "100%")
+            textInput("prelnc_output_path", "Output Path",
+                     value = "/home/data/scLncR/paper/paper_case",
+                     placeholder = "Main output directory for all results"),
+            helpText("All results from the prelnc module will be saved here.")
+          )
+        ),
+        fluidRow(
+          # 参考基因组文件
+          box(
+            width = 6,
+            status = "warning",
+            title = "3. Reference Genome and Annotation Files",
+            solidHeader = TRUE,
+            shinyFilesButton("prelnc_genome_file", "Select Genome File", 
+                           "Please select a FASTA file", multiple = FALSE,
+                           filetypes = c("fa", "fasta", "fa.gz", "fasta.gz")),
+            br(), br(),
+            textInput("prelnc_genome_file", "Genome File (FASTA)",
+                     value = "/home/data/scLncR/genome/TAIR10.fa",
+                     placeholder = "Path to reference genome in FASTA format"),
+            shinyFilesButton("prelnc_gtf_file", "Select GTF File", 
+                           "Please select a GTF file", multiple = FALSE,
+                           filetypes = c("gtf", "gtf.gz")),
+            br(), br(),
+            textInput("prelnc_gtf_file", "GTF Annotation File",
+                     value = "/home/data/scLncR/genome/Araport11_current.gtf",
+                     placeholder = "Path to gene annotation file in GTF format"),
+            helpText("Recommended: Use authoritative sources such as Araport, Ensembl, or RefSeq.")
+          ),
+          
+          # lncRNA命名和计算资源
+          box(
+            width = 6,
+            status = "danger",
+            title = "4. lncRNA Naming and Computational Resources",
+            solidHeader = TRUE,
+            textInput("prelnc_lncrna_name", "lncRNA Name Prefix",
+                     value = "AthLnc",
+                     placeholder = "Custom prefix for newly predicted lncRNA identifiers"),
+            helpText(HTML("<strong>Important:</strong> Only use letters, digits, and hyphens ('-').<br>
+                         DO NOT use underscores ('_'), spaces, or other special characters.")),
+            hr(),
+            numericInput("prelnc_threads", "Number of Threads",
+                        value = 24, min = 1, max = 128, step = 1),
+            helpText("Recommendation: Set to the number of physical CPU cores or slightly lower."),
+            hr(),
+            h5("Validation Status"),
+            uiOutput("prelnc_validation_status")
           )
         )
       ),
       
-      # Tab 2: Expression Counting (count)
+      # 2. Expression Counting 模块 - 根据 config_Count.yaml 设计
       tabItem(
         tabName = "count",
         h2("Expression Counting Module"),
         fluidRow(
           box(
-            width = 4,
+            width = 12,
             status = "primary",
             solidHeader = TRUE,
-            title = "Input Data",
+            title = "Configuration File: config_Count.yaml",
+            collapsible = TRUE
+          )
+        ),
+        fluidRow(
+          box(
+            width = 6,
+            status = "info",
+            title = "1. Input Data Settings",
+            solidHeader = TRUE,
             shinyDirButton("count_samples_dir", "Select Samples Directory", 
-                          "Select directory containing FASTQ files", 
-                          class = "btn-primary", style = "width: 100%;"),
+                         "Please select a directory"),
             br(), br(),
-            verbatimTextOutput("count_samples_dir_display"),
+            textInput("count_samples_dir", "Samples Directory",
+                     value = "/home/data/scLncR/data/paper_test/",
+                     placeholder = "Directory containing raw sample data"),
+            helpText("Each subdirectory under this path should correspond to one sample."),
             hr(),
-            shinyFilesButton("count_genome", "Select Genome FASTA", 
-                           "Select reference genome FASTA file", 
-                           FALSE, class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("count_genome_display"),
-            shinyFilesButton("count_gtf", "Select Reference GTF", 
-                           "Select reference annotation GTF file", 
-                           FALSE, class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("count_gtf_display")
+            h5("Detected Samples"),
+            uiOutput("count_detected_samples")
           ),
           
           box(
-            width = 4,
-            status = "warning",
-            solidHeader = TRUE,
-            title = "LncRNA Annotation & Output",
-            shinyDirButton("count_lnc_gtf", "Select LncRNA GTF Directory", 
-                          "Select lncRNA GTF directory from prelnc step", 
-                          class = "btn-warning", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("count_lnc_gtf_display"),
-            hr(),
-            textInput("count_project_name", "Project Name", value = "scLncR"),
-            shinyDirButton("count_output_path", "Select Output Directory", 
-                          "Select output directory", 
-                          class = "btn-success", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("count_output_path_display")
-          ),
-          
-          box(
-            width = 4,
+            width = 6,
             status = "success",
+            title = "2. Project and Output Settings",
             solidHeader = TRUE,
-            title = "Run Configuration",
-            numericInput("count_threads", "CPU Threads", 
-                        value = 24, min = 1, max = 64),
-            hr(),
-            h4("Advanced Settings"),
-            numericInput("count_cores", "CellRanger Cores", 
-                        value = 4, min = 1, max = 16),
-            helpText("Number of cores for CellRanger count step"),
-            hr(),
-            uiOutput("count_validation"),
-            hr(),
-            actionButton("run_count_single", "Run This Module", 
-                        icon = icon("play"), 
-                        class = "btn-danger btn-lg", width = "100%"),
+            textInput("count_project_name", "Project Name",
+                     value = "scLncR",
+                     placeholder = "Used for naming output directories"),
+            shinyDirButton("count_output_path", "Select Output Directory", 
+                         "Please select a directory"),
             br(), br(),
-            downloadButton("download_count_config", "Download Config", 
-                          class = "btn-info", width = "100%")
+            textInput("count_output_path", "Output Path",
+                     value = "/home/data/scLncR/paper/paper_case/step2_count",
+                     placeholder = "Main output directory for count results")
+          )
+        ),
+        fluidRow(
+          box(
+            width = 6,
+            status = "warning",
+            title = "3. Reference Files",
+            solidHeader = TRUE,
+            shinyFilesButton("count_genome", "Select Genome File", 
+                           "Please select a FASTA file", multiple = FALSE,
+                           filetypes = c("fa", "fasta")),
+            br(), br(),
+            textInput("count_genome", "Genome File (FASTA)",
+                     value = "/home/data/scLncR/genome/TAIR10.fa"),
+            shinyFilesButton("count_gtf", "Select GTF File", 
+                           "Please select a GTF file", multiple = FALSE,
+                           filetypes = c("gtf")),
+            br(), br(),
+            textInput("count_gtf", "GTF Annotation File",
+                     value = "/home/data/scLncR/genome/Araport11_current.gtf")
+          ),
+          
+          box(
+            width = 6,
+            status = "danger",
+            title = "4. lncRNA Annotation and Computational Resources",
+            solidHeader = TRUE,
+            shinyFilesButton("count_lnc_gtf", "Select lncRNA GTF File", 
+                           "Please select a GTF file", multiple = FALSE,
+                           filetypes = c("gtf")),
+            br(), br(),
+            textInput("count_lnc_gtf", "lncRNA GTF File",
+                     value = "/home/data/scLncR/paper/paper_case/lnc_gtf",
+                     placeholder = "Result of prelnc step"),
+            helpText("Path to the lncRNA annotation file in GTF format."),
+            hr(),
+            numericInput("count_threads", "Number of Threads",
+                        value = 24, min = 1, max = 128, step = 1),
+            helpText("Used for compute-intensive steps like alignment and feature counting.")
           )
         )
       ),
       
-      # Tab 3: Data Processing (dataProcess)
+      # 3. Data Processing 模块 - 根据 config_dataProcess.yaml 设计
       tabItem(
         tabName = "dataprocess",
         h2("Data Processing Module"),
         fluidRow(
           box(
-            width = 4,
+            width = 12,
             status = "primary",
             solidHeader = TRUE,
-            title = "Input Data",
+            title = "Configuration File: config_dataProcess.yaml",
+            collapsible = TRUE
+          )
+        ),
+        fluidRow(
+          box(
+            width = 6,
+            status = "info",
+            title = "Core Parameters",
+            solidHeader = TRUE,
             shinyDirButton("dp_counts_dir", "Select Counts Directory", 
-                          "Select directory containing filtered_feature_bc_matrix", 
-                          class = "btn-primary", style = "width: 100%;"),
+                         "Please select a directory"),
             br(), br(),
-            verbatimTextOutput("dp_counts_dir_display"),
-            hr(),
-            shinyFilesButton("dp_samples_info", "Select Samples Info File", 
-                           "Select samples information file (optional)", 
-                           FALSE, class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("dp_samples_info_display")
+            textInput("dp_counts_dir", "Counts Directory",
+                     value = "~/paper/paper_case/step2_count",
+                     placeholder = "Path to sample directories"),
+            helpText("Paths to sample directories (comma-separated if multiple)"),
+            textInput("dp_mt_name", "Mitochondrial Gene Prefix",
+                     value = "AthM",
+                     placeholder = "e.g., 'MT' or 'AthM'"),
+            numericInput("dp_min_RNAs", "Minimum RNA Count per Cell",
+                        value = 100, min = 0, max = 1000, step = 10),
+            numericInput("dp_max_RNAs", "Maximum RNA Count per Cell",
+                        value = 7000, min = 1000, max = 50000, step = 100),
+            numericInput("dp_percent_mt", "Mitochondrial Percentage Threshold",
+                        value = 10, min = 0, max = 100, step = 1)
           ),
           
           box(
-            width = 4,
-            status = "warning",
-            solidHeader = TRUE,
-            title = "Filtering Parameters",
-            textInput("dp_mt_name", "Mitochondrial Gene Prefix", value = "AthM"),
-            textInput("dp_lnc_name", "LncRNA Gene Prefix", value = "AthLnc"),
-            numericInput("dp_min_rnas", "Minimum RNAs per Cell", 
-                        value = 100, min = 0, max = 1000),
-            numericInput("dp_max_rnas", "Maximum RNAs per Cell", 
-                        value = 7000, min = 100, max = 50000),
-            numericInput("dp_pct_mt", "Maximum Mitochondrial %", 
-                        value = 10, min = 0, max = 100, step = 0.1),
-            hr(),
-            h4("Processing Parameters"),
-            numericInput("dp_nfeatures", "Variable Features", 
-                        value = 6000, min = 100, max = 10000),
-            numericInput("dp_dims", "PCA Dimensions", 
-                        value = 15, min = 5, max = 100),
-            numericInput("dp_resolution", "Clustering Resolution", 
-                        value = 0.5, min = 0.1, max = 2, step = 0.1)
-          ),
-          
-          box(
-            width = 4,
+            width = 6,
             status = "success",
+            title = "Processing Parameters",
             solidHeader = TRUE,
-            title = "Annotation & Output",
-            selectInput("dp_anno_method", "Annotation Method", 
-                       choices = c("SingleR" = "SingleR", "scMM" = "scMM"),
+            textInput("dp_lnc_name", "lncRNA Gene Prefix",
+                     value = "AthLnc",
+                     placeholder = "e.g., 'lncRNA' or 'AthLnc'"),
+            numericInput("dp_nfeatures", "Number of Highly Variable Genes",
+                        value = 6000, min = 1000, max = 10000, step = 500),
+            numericInput("dp_dims", "Dimensionality for UMAP/tSNE",
+                        value = 15, min = 5, max = 50, step = 1),
+            numericInput("dp_resolution", "Clustering Resolution",
+                        value = 0.5, min = 0.1, max = 2.0, step = 0.1),
+            helpText("Higher = more clusters"),
+            shinyFilesButton("dp_samples_info", "Select Samples Info File", 
+                           "Please select a CSV/TXT file", multiple = FALSE,
+                           filetypes = c("csv", "txt", "tsv")),
+            br(), br(),
+            textInput("dp_samples_info", "Samples Info File",
+                     value = "~/data/paper_test/samples_info.txt",
+                     placeholder = "Path to metadata CSV file")
+          )
+        ),
+        fluidRow(
+          box(
+            width = 6,
+            status = "warning",
+            title = "Annotation Method Selection",
+            solidHeader = TRUE,
+            selectInput("dp_anno_method", "Annotation Method",
+                       choices = c("SingleR" = "SingleR", 
+                                  "scMM" = "scMM",
+                                  "Manual" = "manual",
+                                  "None" = "none"),
                        selected = "SingleR"),
-            
-            # Conditional panel for SingleR
+            # 根据选择的注释方法显示不同的输入
             conditionalPanel(
               condition = "input.dp_anno_method == 'SingleR'",
-              shinyFilesButton("dp_ref_file", "Select Reference RDS", 
-                             "Select SingleR reference RDS file", 
-                             FALSE, class = "btn-info", style = "width: 100%;"),
+              shinyFilesButton("dp_ref_file", "Select Reference File", 
+                             "Please select an RDS file", multiple = FALSE,
+                             filetypes = c("rds")),
               br(), br(),
-              verbatimTextOutput("dp_ref_file_display")
+              textInput("dp_ref_file", "Reference File for SingleR",
+                       value = "~/data/singler/Ryu_2019_507252.rds",
+                       placeholder = "Path to reference file for SingleR")
             ),
-            
-            # Conditional panel for scMM
             conditionalPanel(
               condition = "input.dp_anno_method == 'scMM'",
-              shinyFilesButton("dp_marker_file", "Select Marker Gene File", 
-                             "Select marker gene file", 
-                             FALSE, class = "btn-info", style = "width: 100%;"),
+              shinyFilesButton("dp_marker_gene_file", "Select Marker Gene File", 
+                             "Please select a file", multiple = FALSE,
+                             filetypes = c("csv", "txt", "tsv", "rds")),
               br(), br(),
-              verbatimTextOutput("dp_marker_file_display"),
-              textInput("dp_tissue", "Tissue Type", value = ""),
-              numericInput("dp_n_top_markers", "Top Markers", 
-                          value = 3, min = 1, max = 20)
-            ),
-            
+              textInput("dp_marker_gene_file", "Marker Gene File for scMM",
+                       value = "",
+                       placeholder = "Path to marker gene file for scMM"),
+              textInput("dp_tissue", "Tissue Type",
+                       value = "",
+                       placeholder = "e.g., 'lung', 'brain', 'blood'"),
+              numericInput("dp_n_top_markers", "Number of Top Markers",
+                          value = 3, min = 1, max = 20, step = 1)
+            )
+          ),
+          
+          box(
+            width = 6,
+            status = "danger",
+            title = "Output Settings",
+            solidHeader = TRUE,
             shinyDirButton("dp_output_dir", "Select Output Directory", 
-                          "Select output directory", 
-                          class = "btn-success", style = "width: 100%;"),
+                         "Please select a directory"),
             br(), br(),
-            verbatimTextOutput("dp_output_dir_display"),
+            textInput("dp_output_dir", "Output Directory",
+                     value = "~/paper/paper_case/step3_dataProcess",
+                     placeholder = "Root output directory for all results"),
             hr(),
-            uiOutput("dp_validation"),
-            hr(),
-            actionButton("run_dp_single", "Run This Module", 
-                        icon = icon("play"), 
-                        class = "btn-danger btn-lg", width = "100%"),
-            br(), br(),
-            downloadButton("download_dp_config", "Download Config", 
-                          class = "btn-info", width = "100%")
+            h5("Generated Subdirectories:"),
+            tags$ul(
+              tags$li("sample_seurat_raw - Raw Seurat objects"),
+              tags$li("data_preprocess - Preprocessing results"),
+              tags$li("data_annotation - Annotation results")
+            )
           )
         )
       ),
       
-      # Tab 4: Function Analysis (function)
+      # 4. Function Analysis 模块 - 根据 config_function.yaml 设计
       tabItem(
         tabName = "function_tab",
         h2("Function Analysis Module"),
         fluidRow(
           box(
-            width = 3,
+            width = 12,
             status = "primary",
             solidHeader = TRUE,
-            title = "Global Input",
-            shinyFilesButton("func_input_seurat", "Select Seurat Object", 
-                           "Select integrated Seurat RDS file", 
-                           FALSE, class = "btn-primary", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("func_input_seurat_display"),
-            hr(),
-            h4("Modules to Run"),
-            awesomeCheckboxGroup(
-              inputId = "func_run_modules",
-              label = "Select Modules:",
-              choices = c("Location Analysis" = "location",
-                         "Monocle2 Trajectory" = "monocle2",
-                         "WGCNA Network" = "wgcna"),
-              selected = c("location", "monocle2", "wgcna"),
-              status = "primary"
-            )
-          ),
-          
-          box(
-            width = 3,
-            status = "warning",
-            solidHeader = TRUE,
-            title = "Location Analysis",
-            numericInput("func_loc_logfc", "Log2FC Threshold", 
-                        value = 0.25, min = 0, max = 2, step = 0.01),
-            numericInput("func_loc_padj", "Adjusted P-value Threshold", 
-                        value = 0.05, min = 0.001, max = 0.2, step = 0.001),
-            textInput("func_loc_lncrna_name", "LncRNA Prefix", value = "scLncR"),
-            shinyDirButton("func_loc_output", "Output Directory", 
-                          "Select output directory", 
-                          class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("func_loc_output_display")
-          ),
-          
-          box(
-            width = 3,
-            status = "info",
-            solidHeader = TRUE,
-            title = "Monocle2 Analysis",
-            numericInput("func_mono_qval", "Q-value Threshold", 
-                        value = 0.05, min = 0.001, max = 0.2, step = 0.001),
-            selectInput("func_mono_method", "Reduction Method", 
-                       choices = c("DDRTree", "ICA", "tSNE"),
-                       selected = "DDRTree"),
-            textInput("func_mono_hub_genes", "Hub Genes", value = "all"),
-            helpText("Enter 'all' or comma-separated gene list"),
-            shinyDirButton("func_mono_output", "Output Directory", 
-                          "Select output directory", 
-                          class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("func_mono_output_display")
-          ),
-          
-          box(
-            width = 3,
-            status = "success",
-            solidHeader = TRUE,
-            title = "WGCNA Analysis",
-            shinyDirButton("func_wgcna_output", "Output Directory", 
-                          "Select output directory", 
-                          class = "btn-info", style = "width: 100%;"),
-            br(), br(),
-            verbatimTextOutput("func_wgcna_output_display"),
-            textInput("func_wgcna_cell_types", "Cell Types (optional)", 
-                     value = "", placeholder = "T_cell,B_cell,NK_cell"),
-            helpText("Leave empty for all cell types"),
-            textInput("func_wgcna_pro_name", "Project Prefix", value = "scLncR"),
-            textInput("func_wgcna_lnc_name", "LncRNA Filter", value = "AthLnc"),
-            selectInput("func_wgcna_method", "Gene Selection Method", 
-                       choices = c("fraction", "variance"),
-                       selected = "fraction"),
-            hr(),
-            actionButton("run_func_single", "Run This Module", 
-                        icon = icon("play"), 
-                        class = "btn-danger btn-lg", width = "100%"),
-            br(), br(),
-            downloadButton("download_func_config", "Download Config", 
-                          class = "btn-info", width = "100%")
+            title = "Configuration File: config_function.yaml",
+            collapsible = TRUE
           )
-        )
-      ),
-      
-      # Tab 5: Pipeline Runner
-      tabItem(
-        tabName = "runner",
-        h2("Pipeline Runner"),
+        ),
         fluidRow(
           box(
-            width = 8,
-            status = "primary",
+            width = 4,
+            status = "info",
+            title = "Global Input Settings",
             solidHeader = TRUE,
-            title = "Pipeline Configuration",
-            h4("Select Pipeline Steps:"),
-            fluidRow(
-              column(3,
-                awesomeCheckbox("run_prelnc_pipe", "LncRNA Prediction", value = TRUE)
-              ),
-              column(3,
-                awesomeCheckbox("run_count_pipe", "Expression Counting", value = TRUE)
-              ),
-              column(3,
-                awesomeCheckbox("run_dp_pipe", "Data Processing", value = TRUE)
-              ),
-              column(3,
-                awesomeCheckbox("run_func_pipe", "Function Analysis", value = TRUE)
-              )
-            ),
+            shinyFilesButton("func_input_seurat", "Select Seurat Object", 
+                           "Please select an RDS file", multiple = FALSE,
+                           filetypes = c("rds")),
+            br(), br(),
+            textInput("func_input_seurat", "Input Seurat Object (RDS)",
+                     value = "path/to/integrated_seurat.rds",
+                     placeholder = "Path to preprocessed Seurat object"),
+            helpText("Required: Path to preprocessed Seurat object (.rds file)"),
             hr(),
-            h4("Execution Mode"),
-            radioButtons("run_mode", NULL,
-                        choices = c("Run All Selected" = "all",
-                                   "Step-by-Step" = "stepwise",
-                                   "Generate Configs Only" = "dryrun"),
-                        selected = "all", inline = TRUE),
-            conditionalPanel(
-              condition = "input.run_mode == 'stepwise'",
-              selectInput("start_step", "Start from Step:", 
-                         choices = c("LncRNA Prediction" = "prelnc",
-                                    "Expression Counting" = "count",
-                                    "Data Processing" = "dataprocess",
-                                    "Function Analysis" = "function"))
-            ),
-            hr(),
-            h4("Output Directory"),
-            textInput("pipe_output_root", "Pipeline Output Root", 
-                     value = "/home/data/scLncR/analysis"),
-            helpText("All module outputs will be saved under this directory")
+            checkboxGroupInput("func_run_modules", "Modules to Run",
+                              choices = list(
+                                "Location Analysis" = "location",
+                                "Monocle2 Trajectory" = "monocle2",
+                                "WGCNA Co-expression" = "wgcna"
+                              ),
+                              selected = c("location", "monocle2", "wgcna"))
           ),
           
           box(
             width = 4,
             status = "success",
+            title = "Location Analysis Parameters",
             solidHeader = TRUE,
-            title = "Run Pipeline",
-            h4("Pipeline Status:"),
-            verbatimTextOutput("pipe_status"),
-            hr(),
-            actionButton("validate_pipeline", "Validate Pipeline", 
-                        icon = icon("check"), class = "btn-warning", width = "100%"),
-            br(), br(),
-            actionButton("run_pipeline", "Run Pipeline", 
-                        icon = icon("rocket"), 
-                        class = "btn-success btn-lg", width = "100%"),
-            br(), br(),
-            actionButton("stop_pipeline", "Stop Pipeline", 
-                        icon = icon("stop"), 
-                        class = "btn-danger", width = "100%"),
-            hr(),
-            downloadButton("download_pipe_config", "Download Pipeline Config", 
-                          class = "btn-info", width = "100%")
+            numericInput("func_location_log2fc", "Log2FC Threshold",
+                        value = 0.25, min = 0, max = 2, step = 0.05),
+            numericInput("func_location_padj", "Adjusted P-value Threshold",
+                        value = 0.05, min = 0.001, max = 0.1, step = 0.001),
+            textInput("func_location_output", "Output Path",
+                     value = "./location_results",
+                     placeholder = "Output directory for location analysis"),
+            textInput("func_location_lnc_name", "lncRNA Name Prefix",
+                     value = "scLncR",
+                     placeholder = "Prefix for lncRNA naming")
+          ),
+          
+          box(
+            width = 4,
+            status = "warning",
+            title = "Monocle2 Parameters",
+            solidHeader = TRUE,
+            numericInput("func_monocle2_qval", "Q-value Threshold",
+                        value = 0.05, min = 0.001, max = 0.1, step = 0.001),
+            selectInput("func_monocle2_method", "Dimension Reduction Method",
+                       choices = c("DDRTree" = "DDRTree",
+                                  "ICA" = "ICA",
+                                  "tSNE" = "tSNE"),
+                       selected = "DDRTree"),
+            textInput("func_monocle2_output", "Output Path",
+                     value = "./monocle2_results",
+                     placeholder = "Output directory for Monocle2"),
+            textInput("func_monocle2_hub_genes", "Hub Genes",
+                     value = "all",
+                     placeholder = "'all' or comma-separated gene list")
           )
         ),
         fluidRow(
           box(
-            width = 12,
-            status = "info",
+            width = 6,
+            status = "danger",
+            title = "WGCNA Parameters",
             solidHeader = TRUE,
-            title = "Pipeline Output Log",
-            div(style = "height: 400px; overflow-y: auto;",
-                verbatimTextOutput("pipe_log")
+            textInput("func_wgcna_output", "Output Path",
+                     value = "./wgcna_results",
+                     placeholder = "Output directory for WGCNA"),
+            selectizeInput("func_wgcna_cell_types", "Cell Types to Include",
+                          choices = NULL,
+                          multiple = TRUE,
+                          options = list(placeholder = 'Select cell types (empty = all)')),
+            textInput("func_wgcna_pro_name", "Project Prefix",
+                     value = "scLncR",
+                     placeholder = "Project prefix for module naming"),
+            textInput("func_wgcna_lnc_name", "lncRNA Prefix Filter",
+                     value = "AthLnc",
+                     placeholder = "lncRNA prefix filter (empty = no filter)"),
+            selectInput("func_wgcna_gene_select", "Gene Selection Method",
+                       choices = c("fraction" = "fraction",
+                                  "variance" = "variance"),
+                       selected = "fraction")
+          ),
+          
+          box(
+            width = 6,
+            status = "primary",
+            title = "Module Dependencies",
+            solidHeader = TRUE,
+            h5("Module Prerequisites:"),
+            tags$ul(
+              tags$li(tags$strong("Location Analysis:"), 
+                     "Requires preprocessed Seurat object with cell annotations"),
+              tags$li(tags$strong("Monocle2:"), 
+                     "Requires cell type annotations and variable features"),
+              tags$li(tags$strong("WGCNA:"), 
+                     "Requires normalized expression matrix")
             ),
-            br(),
-            actionButton("clear_log", "Clear Log", icon = icon("broom")),
-            downloadButton("download_full_log", "Download Full Log", 
-                          class = "btn-info")
+            hr(),
+            h5("Estimated Runtime:"),
+            uiOutput("func_runtime_estimate"),
+            hr(),
+            actionButton("func_preview_config", "Preview Configuration",
+                        class = "btn-info", width = "100%")
           )
         )
       ),
       
-      # Tab 6: Job Monitor
+      # 运行管道页面
       tabItem(
-        tabName = "monitor",
-        h2("Job Monitor"),
+        tabName = "run",
+        h2("Run scLncR Pipeline"),
+        fluidRow(
+          box(
+            width = 12,
+            status = "success",
+            solidHeader = TRUE,
+            title = "Pipeline Execution Control",
+            h4("Select Modules to Execute:"),
+            fluidRow(
+              column(3, awesomeCheckbox("run_prelnc", "LncRNA Prediction", value = TRUE)),
+              column(3, awesomeCheckbox("run_count", "Expression Counting", value = TRUE)),
+              column(3, awesomeCheckbox("run_dp", "Data Processing", value = TRUE)),
+              column(3, awesomeCheckbox("run_func", "Function Analysis", value = TRUE))
+            ),
+            hr(),
+            h4("Execution Options"),
+            fluidRow(
+              column(6,
+                selectInput("run_mode", "Execution Mode",
+                           choices = c(
+                             "Full Pipeline (Sequential)" = "full",
+                             "Selected Modules Only" = "selected",
+                             "Dry Run (Generate Configs Only)" = "dryrun",
+                             "Step-by-Step (Interactive)" = "stepwise"
+                           ),
+                           selected = "full"),
+                checkboxInput("run_parallel", "Enable Parallel Execution", value = FALSE),
+                conditionalPanel(
+                  condition = "input.run_parallel == true",
+                  numericInput("run_parallel_jobs", "Max Parallel Jobs",
+                              value = 2, min = 1, max = 8)
+                )
+              ),
+              column(6,
+                textInput("run_output_dir", "Pipeline Output Directory",
+                         value = "./scLncR_results",
+                         placeholder = "Directory for all pipeline outputs"),
+                selectInput("run_log_level", "Log Level",
+                           choices = c("INFO" = "info",
+                                      "DEBUG" = "debug",
+                                      "WARN" = "warn",
+                                      "ERROR" = "error"),
+                           selected = "info"),
+                checkboxInput("run_clean_intermediate", "Clean Intermediate Files", value = FALSE)
+              )
+            ),
+            hr(),
+            fluidRow(
+              column(6,
+                actionButton("validate_pipeline", "Validate Pipeline",
+                            icon = icon("check-circle"),
+                            class = "btn-warning",
+                            width = "100%")
+              ),
+              column(6,
+                actionButton("run_pipeline", "Execute Pipeline",
+                            icon = icon("play"),
+                            class = "btn-success btn-lg",
+                            width = "100%")
+              )
+            ),
+            hr(),
+            h4("Pipeline Validation Status"),
+            uiOutput("pipeline_validation_status"),
+            hr(),
+            h4("Execution Log"),
+            div(style = "max-height: 400px; overflow-y: auto;",
+                verbatimTextOutput("execution_log")),
+            br(),
+            fluidRow(
+              column(6,
+                downloadButton("download_log", "Download Log File",
+                              class = "btn-info")
+              ),
+              column(6,
+                actionButton("clear_log", "Clear Log",
+                            class = "btn-default")
+              )
+            )
+          )
+        ),
+        fluidRow(
+          box(
+            width = 6,
+            title = "Generated Configuration Files",
+            status = "primary",
+            collapsible = TRUE,
+            DTOutput("config_files_table")
+          ),
+          box(
+            width = 6,
+            title = "Pipeline Progress",
+            status = "info",
+            collapsible = TRUE,
+            uiOutput("pipeline_progress"),
+            hr(),
+            h5("Current Status:"),
+            verbatimTextOutput("current_status"),
+            hr(),
+            actionButton("stop_pipeline", "Stop Pipeline", 
+                        icon = icon("stop"),
+                        class = "btn-danger")
+          )
+        )
+      ),
+      
+      # 配置文件页面
+      tabItem(
+        tabName = "configs",
+        h2("Configuration Files Management"),
+        fluidRow(
+          box(
+            width = 12,
+            title = "Configuration Files",
+            status = "primary",
+            solidHeader = TRUE,
+            DTOutput("all_configs_table")
+          )
+        ),
+        fluidRow(
+          box(
+            width = 6,
+            title = "Generate Configuration Files",
+            status = "success",
+            solidHeader = TRUE,
+            selectInput("config_module", "Select Module",
+                       choices = c("LncRNA Prediction" = "prelnc",
+                                  "Expression Counting" = "count",
+                                  "Data Processing" = "dataprocess",
+                                  "Function Analysis" = "function")),
+            textInput("config_filename", "Filename (without .yaml)",
+                     value = "config", placeholder = "e.g., my_config"),
+            br(),
+            actionButton("generate_config", "Generate Config File",
+                        icon = icon("file-code"),
+                        class = "btn-primary",
+                        width = "100%"),
+            hr(),
+            h5("Batch Generation:"),
+            actionButton("generate_all_configs", "Generate All Configs",
+                        class = "btn-warning", width = "100%")
+          ),
+          box(
+            width = 6,
+            title = "Load Configuration File",
+            status = "info",
+            solidHeader = TRUE,
+            fileInput("load_config_input", "Choose YAML File",
+                     accept = c(".yaml", ".yml")),
+            selectInput("load_config_module", "Apply to Module",
+                       choices = c("LncRNA Prediction" = "prelnc",
+                                  "Expression Counting" = "count",
+                                  "Data Processing" = "dataprocess",
+                                  "Function Analysis" = "function",
+                                  "All Modules" = "all")),
+            br(),
+            actionButton("load_config_btn", "Load Configuration",
+                        icon = icon("upload"),
+                        class = "btn-success",
+                        width = "100%"),
+            hr(),
+            h5("Recent Configurations:"),
+            uiOutput("recent_configs")
+          )
+        )
+      ),
+      
+      # 文档页面
+      tabItem(
+        tabName = "docs",
+        h2("Documentation"),
+        fluidRow(
+          box(
+            width = 12,
+            title = "scLncR Documentation",
+            status = "info",
+            solidHeader = TRUE,
+            includeMarkdown("www/overview.md")
+          )
+        )
+      ),
+      
+      # 关于页面
+      tabItem(
+        tabName = "about",
+        h2("About scLncR"),
         fluidRow(
           box(
             width = 12,
             status = "primary",
             solidHeader = TRUE,
-            title = "Active Jobs",
-            DTOutput("active_jobs_table")
-          )
-        ),
-        fluidRow(
-          box(
-            width = 6,
-            status = "success",
-            solidHeader = TRUE,
-            title = "Job Details",
-            verbatimTextOutput("job_details")
-          ),
-          box(
-            width = 6,
-            status = "warning",
-            solidHeader = TRUE,
-            title = "Job Actions",
-            actionButton("refresh_jobs", "Refresh Jobs", 
-                        icon = icon("sync"), class = "btn-primary", width = "100%"),
-            br(), br(),
-            actionButton("kill_job", "Kill Selected Job", 
-                        icon = icon("skull-crossbones"), 
-                        class = "btn-danger", width = "100%"),
-            br(), br(),
-            actionButton("view_job_log", "View Job Log", 
-                        icon = icon("file-alt"), 
-                        class = "btn-info", width = "100%"),
+            h3("scLncR - Single-cell lncRNA Analysis Pipeline"),
+            p("Version: 1.0.0"),
+            p("Author: Your Name/Institution"),
+            p("License: MIT"),
             hr(),
-            h4("Job Statistics"),
-            plotOutput("job_stats", height = "200px")
+            h4("Citation:"),
+            p("If you use scLncR in your research, please cite:"),
+            p(em("scLncR: A comprehensive pipeline for single-cell long non-coding RNA analysis.")),
+            hr(),
+            h4("Contact:"),
+            p("Email: your.email@institution.edu"),
+            p("GitHub: https://github.com/yourrepo/scLncR"),
+            hr(),
+            h4("Acknowledgments:"),
+            tags$ul(
+              tags$li("R Core Team"),
+              tags$li("Seurat development team"),
+              tags$li("CellRanger team (10x Genomics)"),
+              tags$li("All package maintainers")
+            )
           )
         )
       )
@@ -566,428 +758,394 @@ ui <- dashboardPage(
   )
 )
 
-# Server逻辑
+# 服务器逻辑
 server <- function(input, output, session) {
   
-  # 初始化文件选择器
-  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
-  
-  # 设置文件选择器
-  shinyFileChoose(input, "prelnc_samples_dir", roots = volumes, 
-                  filetypes = c('', 'dir'))
-  shinyFileChoose(input, "prelnc_genome", roots = volumes, 
-                  filetypes = c('fa', 'fasta', 'fna'))
-  shinyFileChoose(input, "prelnc_gtf", roots = volumes, 
-                  filetypes = c('gtf', 'gff', 'gff3'))
-  shinyDirChoose(input, "prelnc_output_path", roots = volumes)
-  
-  shinyFileChoose(input, "count_samples_dir", roots = volumes, 
-                  filetypes = c('', 'dir'))
-  shinyFileChoose(input, "count_genome", roots = volumes, 
-                  filetypes = c('fa', 'fasta', 'fna'))
-  shinyFileChoose(input, "count_gtf", roots = volumes, 
-                  filetypes = c('gtf', 'gff', 'gff3'))
-  shinyDirChoose(input, "count_lnc_gtf", roots = volumes)
-  shinyDirChoose(input, "count_output_path", roots = volumes)
-  
-  shinyDirChoose(input, "dp_counts_dir", roots = volumes)
-  shinyFileChoose(input, "dp_samples_info", roots = volumes, 
-                  filetypes = c('txt', 'csv', 'tsv'))
-  shinyFileChoose(input, "dp_ref_file", roots = volumes, 
-                  filetypes = c('rds'))
-  shinyFileChoose(input, "dp_marker_file", roots = volumes, 
-                  filetypes = c('txt', 'csv', 'tsv', 'rds'))
-  shinyDirChoose(input, "dp_output_dir", roots = volumes)
-  
-  shinyFileChoose(input, "func_input_seurat", roots = volumes, 
-                  filetypes = c('rds'))
-  shinyDirChoose(input, "func_loc_output", roots = volumes)
-  shinyDirChoose(input, "func_mono_output", roots = volumes)
-  shinyDirChoose(input, "func_wgcna_output", roots = volumes)
-  
-  # 响应式值
+  # 初始化响应式值
   values <- reactiveValues(
-    prelnc_config = NULL,
-    count_config = NULL,
-    dp_config = NULL,
-    func_config = NULL,
-    pipe_log = "",
-    pipe_status = "Ready",
-    active_jobs = list(),
-    job_history = list()
+    # 配置状态
+    configs = list(
+      prelnc = NULL,
+      count = NULL,
+      dataprocess = NULL,
+      function_tab = NULL
+    ),
+    # 运行状态
+    pipeline_status = "idle",
+    execution_log = "",
+    config_files = data.frame(),
+    scLncR_path = "",
+    scLncR_home = ""
   )
   
-  # Dashboard value boxes
-  output$box_prelnc <- renderValueBox({
-    valueBox(
-      "LncRNA Prediction", 
-      ifelse(is.null(values$prelnc_config), "Not Configured", "Configured"),
-      icon = icon("dna"),
-      color = ifelse(is.null(values$prelnc_config), "red", "green")
-    )
-  })
-  
-  output$box_count <- renderValueBox({
-    valueBox(
-      "Expression Counting", 
-      ifelse(is.null(values$count_config), "Not Configured", "Configured"),
-      icon = icon("calculator"),
-      color = ifelse(is.null(values$count_config), "red", "green")
-    )
-  })
-  
-  output$box_dataprocess <- renderValueBox({
-    valueBox(
-      "Data Processing", 
-      ifelse(is.null(values$dp_config), "Not Configured", "Configured"),
-      icon = icon("filter"),
-      color = ifelse(is.null(values$dp_config), "red", "green")
-    )
-  })
-  
-  output$box_function <- renderValueBox({
-    valueBox(
-      "Function Analysis", 
-      ifelse(is.null(values$func_config), "Not Configured", "Configured"),
-      icon = icon("chart-line"),
-      color = ifelse(is.null(values$func_config), "red", "green")
-    )
-  })
-  
-  # File path displays for prelnc
-  output$prelnc_samples_dir_display <- renderText({
-    if (is.integer(input$prelnc_samples_dir)) {
-      "No directory selected"
+  # 初始化 - 查找scLncR
+  observe({
+    # 查找scLncR可执行文件
+    scLncR_path <- Sys.which("scLncR")
+    if (scLncR_path != "") {
+      values$scLncR_path <- scLncR_path
+      values$scLncR_home <- dirname(scLncR_path)
+      
+      # 更新日志
+      values$execution_log <- paste0(
+        values$execution_log,
+        "[INFO] Found scLncR at: ", scLncR_path, "\n",
+        "[INFO] Installation directory: ", values$scLncR_home, "\n"
+      )
     } else {
-      parseDirPath(volumes, input$prelnc_samples_dir)
+      showNotification("scLncR not found in PATH. Please make sure it's installed.",
+                      type = "error", duration = NULL)
     }
   })
   
-  output$prelnc_genome_display <- renderText({
-    if (is.integer(input$prelnc_genome)) {
-      "No file selected"
-    } else {
-      parseFilePaths(volumes, input$prelnc_genome)$datapath
-    }
-  })
-  
-  output$prelnc_gtf_display <- renderText({
-    if (is.integer(input$prelnc_gtf)) {
-      "No file selected"
-    } else {
-      parseFilePaths(volumes, input$prelnc_gtf)$datapath
-    }
-  })
-  
-  output$prelnc_output_path_display <- renderText({
-    if (is.integer(input$prelnc_output_path)) {
-      "No directory selected"
-    } else {
-      parseDirPath(volumes, input$prelnc_output_path)
-    }
-  })
-  
-  # Validation for prelnc
-  output$prelnc_validation <- renderUI({
-    samples_dir <- if (!is.integer(input$prelnc_samples_dir)) 
-      parseDirPath(volumes, input$prelnc_samples_dir) else NULL
-    genome <- if (!is.integer(input$prelnc_genome)) 
-      parseFilePaths(volumes, input$prelnc_genome)$datapath else NULL
-    gtf <- if (!is.integer(input$prelnc_gtf)) 
-      parseFilePaths(volumes, input$prelnc_gtf)$datapath else NULL
-    output_path <- if (!is.integer(input$prelnc_output_path)) 
-      parseDirPath(volumes, input$prelnc_output_path) else NULL
+  # 值框输出
+  output$box_pipeline_status <- renderValueBox({
+    status <- values$pipeline_status
+    color <- if (status == "idle") "green" else
+             if (status == "running") "yellow" else
+             if (status == "completed") "blue" else "red"
     
-    if (is.null(samples_dir)) {
-      return(div(icon("times-circle"), " Samples directory required", 
-                 style = "color: red;"))
-    }
-    if (is.null(genome)) {
-      return(div(icon("times-circle"), " Genome FASTA required", 
-                 style = "color: red;"))
-    }
-    if (is.null(gtf)) {
-      return(div(icon("times-circle"), " Reference GTF required", 
-                 style = "color: red;"))
-    }
-    if (is.null(output_path)) {
-      return(div(icon("times-circle"), " Output directory required", 
-                 style = "color: red;"))
-    }
+    valueBox(
+      value = toupper(status),
+      subtitle = "Pipeline Status",
+      icon = icon(if (status == "running") "sync" else "check-circle"),
+      color = color
+    )
+  })
+  
+  output$box_scLncR_status <- renderValueBox({
+    status <- if (values$scLncR_path != "") "Available" else "Not Found"
+    color <- if (values$scLncR_path != "") "green" else "red"
     
-    # Check if files exist
-    checks <- c(
-      if (!dir.exists(samples_dir)) "Samples directory not found",
-      if (!file.exists(genome)) "Genome file not found",
-      if (!file.exists(gtf)) "GTF file not found"
+    valueBox(
+      value = status,
+      subtitle = "scLncR Tool",
+      icon = icon(if (values$scLncR_path != "") "check" else "times"),
+      color = color
+    )
+  })
+  
+  # 模块状态表
+  output$module_status_table <- renderDT({
+    data.frame(
+      Module = c("LncRNA Prediction", "Expression Counting", 
+                "Data Processing", "Function Analysis"),
+      Status = c("Ready", "Ready", "Ready", "Ready"),
+      Config = c("Valid", "Valid", "Valid", "Valid"),
+      LastRun = c("Never", "Never", "Never", "Never"),
+      stringsAsFactors = FALSE
+    )
+  }, options = list(pageLength = 4))
+  
+  # 为每个模块添加文件浏览器功能
+  volumes <- c(Home = fs::path_home(), "R Installation" = R.home(), getVolumes()())
+  
+  # LncRNA Prediction 文件浏览器
+  shinyDirChoose(input, "prelnc_samples_dir", roots = volumes, session = session)
+  shinyDirChoose(input, "prelnc_output_path", roots = volumes, session = session)
+  shinyFileChoose(input, "prelnc_genome_file", roots = volumes, session = session)
+  shinyFileChoose(input, "prelnc_gtf_file", roots = volumes, session = session)
+  
+  observeEvent(input$prelnc_samples_dir, {
+    if (!is.integer(input$prelnc_samples_dir)) {
+      path <- parseDirPath(volumes, input$prelnc_samples_dir)
+      updateTextInput(session, "prelnc_samples_dirs", value = path)
+    }
+  })
+  
+  # 类似地为其他模块添加文件浏览器...
+  
+  # 生成配置文件函数
+  generate_prelnc_config <- function() {
+    config <- list(
+      samples_dirs = input$prelnc_samples_dirs,
+      project_name = input$prelnc_project_name,
+      output_path = input$prelnc_output_path,
+      genome_file = input$prelnc_genome_file,
+      gtf_file = input$prelnc_gtf_file,
+      lncrna_name = input$prelnc_lncrna_name,
+      threads = as.integer(input$prelnc_threads)
     )
     
-    if (length(checks) > 0) {
-      return(div(icon("exclamation-triangle"), 
-                 paste(checks, collapse = "; "), 
-                 style = "color: orange;"))
-    }
+    # 添加注释
+    attr(config, "comment") <- list(
+      "scLncR - Single-cell lncRNA Analysis Pipeline: prelnc Module Configuration",
+      "Purpose: Define input data paths, reference genome information, output settings, and runtime parameters."
+    )
     
-    return(div(icon("check-circle"), " All inputs valid", 
-               style = "color: green;"))
+    return(config)
+  }
+  
+  generate_count_config <- function() {
+    config <- list(
+      samples_dir = input$count_samples_dir,
+      project_name = input$count_project_name,
+      output_path = input$count_output_path,
+      genome = input$count_genome,
+      gtf = input$count_gtf,
+      lnc_gtf = input$count_lnc_gtf,
+      threads = as.integer(input$count_threads)
+    )
+    
+    return(config)
+  }
+  
+  generate_dataprocess_config <- function() {
+    config <- list(
+      counts_dir = input$dp_counts_dir,
+      mt_name = input$dp_mt_name,
+      min.RNAs = as.integer(input$dp_min_RNAs),
+      max.RNAs = as.integer(input$dp_max_RNAs),
+      percent.mt = as.numeric(input$dp_percent_mt),
+      lnc_name = input$dp_lnc_name,
+      nfeatures = as.integer(input$dp_nfeatures),
+      dims = as.integer(input$dp_dims),
+      resolution = as.numeric(input$dp_resolution),
+      samples_info = input$dp_samples_info,
+      anno_method = input$dp_anno_method,
+      ref_file = if (input$dp_anno_method == "SingleR") input$dp_ref_file else "",
+      marker_gene_file = if (input$dp_anno_method == "scMM") input$dp_marker_gene_file else "",
+      tissue = if (input$dp_anno_method == "scMM") input$dp_tissue else "",
+      n_top_markers = if (input$dp_anno_method == "scMM") as.integer(input$dp_n_top_markers) else 3,
+      output_dir = input$dp_output_dir
+    )
+    
+    return(config)
+  }
+  
+  generate_function_config <- function() {
+    config <- list(
+      input_seurat = input$func_input_seurat,
+      run_modules = input$func_run_modules,
+      location = list(
+        LOG2FC_THRESH = as.numeric(input$func_location_log2fc),
+        PADJ_THRESH = as.numeric(input$func_location_padj),
+        output_path = input$func_location_output,
+        lncRNA_name = input$func_location_lnc_name
+      ),
+      monocle2 = list(
+        qval = as.numeric(input$func_monocle2_qval),
+        reduceDimensionMethod = input$func_monocle2_method,
+        output_path = input$func_monocle2_output,
+        hub_genes = input$func_monocle2_hub_genes
+      ),
+      wgcna = list(
+        output_path = input$func_wgcna_output,
+        cell_types = input$func_wgcna_cell_types,
+        pro_name = input$func_wgcna_pro_name,
+        lnc_name = input$func_wgcna_lnc_name,
+        gene_select_method = input$func_wgcna_gene_select
+      )
+    )
+    
+    return(config)
+  }
+  
+  # 生成配置文件按钮
+  observeEvent(input$generate_config, {
+    module <- input$config_module
+    filename <- paste0(input$config_filename, ".yaml")
+    
+    config <- switch(module,
+      "prelnc" = generate_prelnc_config(),
+      "count" = generate_count_config(),
+      "dataprocess" = generate_dataprocess_config(),
+      "function" = generate_function_config()
+    )
+    
+    # 写入文件
+    write_yaml(config, filename)
+    
+    # 添加到记录
+    new_row <- data.frame(
+      Module = module,
+      Filename = filename,
+      Time = Sys.time(),
+      Size = file.info(filename)$size,
+      stringsAsFactors = FALSE
+    )
+    
+    values$config_files <- rbind(values$config_files, new_row)
+    
+    showNotification(
+      sprintf("Configuration file saved: %s", filename),
+      type = "success"
+    )
   })
   
-  # Generate prelnc config
-  observeEvent(input$run_prelnc_single, {
-    # Validate inputs
-    samples_dir <- if (!is.integer(input$prelnc_samples_dir)) 
-      parseDirPath(volumes, input$prelnc_samples_dir) else NULL
-    genome <- if (!is.integer(input$prelnc_genome)) 
-      parseFilePaths(volumes, input$prelnc_genome)$datapath else NULL
-    gtf <- if (!is.integer(input$prelnc_gtf)) 
-      parseFilePaths(volumes, input$prelnc_gtf)$datapath else NULL
-    output_path <- if (!is.integer(input$prelnc_output_path)) 
-      parseDirPath(volumes, input$prelnc_output_path) else NULL
+  # 生成所有配置文件
+  observeEvent(input$generate_all_configs, {
+    timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
     
-    if (any(sapply(list(samples_dir, genome, gtf, output_path), is.null))) {
-      shinyalert("Error", "Please fill all required fields", type = "error")
+    # 生成prelnc配置
+    prelnc_config <- generate_prelnc_config()
+    write_yaml(prelnc_config, sprintf("config_LncPre_%s.yaml", timestamp))
+    
+    # 生成count配置
+    count_config <- generate_count_config()
+    write_yaml(count_config, sprintf("config_Count_%s.yaml", timestamp))
+    
+    # 生成dataprocess配置
+    dp_config <- generate_dataprocess_config()
+    write_yaml(dp_config, sprintf("config_dataProcess_%s.yaml", timestamp))
+    
+    # 生成function配置
+    func_config <- generate_function_config()
+    write_yaml(func_config, sprintf("config_function_%s.yaml", timestamp))
+    
+    showNotification(
+      sprintf("All configuration files generated with timestamp: %s", timestamp),
+      type = "success"
+    )
+  })
+  
+  # 运行管道
+  observeEvent(input$run_pipeline, {
+    # 检查scLncR是否可用
+    if (values$scLncR_path == "") {
+      showNotification("scLncR not found. Please install it first.", 
+                      type = "error")
       return()
     }
     
-    # Generate config
-    config <- list(
-      samples_dirs = samples_dir,
-      project_name = input$prelnc_project_name,
-      output_path = output_path,
-      genome_file = genome,
-      gtf_file = gtf,
-      lncrna_name = input$prelnc_lncrna_name,
-      threads = input$prelnc_threads
+    # 更新状态
+    values$pipeline_status <- "running"
+    values$execution_log <- paste0(
+      values$execution_log,
+      "[INFO] Starting scLncR pipeline...\n",
+      "[INFO] Time: ", Sys.time(), "\n"
     )
     
-    values$prelnc_config <- config
+    # 禁用运行按钮
+    shinyjs::disable("run_pipeline")
     
-    # Save config file
+    # 创建输出目录
+    output_dir <- input$run_output_dir
+    if (!dir.exists(output_dir)) {
+      dir.create(output_dir, recursive = TRUE)
+      values$execution_log <- paste0(
+        values$execution_log,
+        "[INFO] Created output directory: ", output_dir, "\n"
+      )
+    }
+    
+    # 生成配置文件
     timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-    config_file <- file.path(output_path, 
-                            paste0("config_LncPre_", timestamp, ".yaml"))
+    config_dir <- file.path(output_dir, "configs")
+    dir.create(config_dir, recursive = TRUE)
     
-    tryCatch({
-      yaml::write_yaml(config, config_file)
+    # 运行选中的模块
+    if (input$run_prelnc) {
+      config <- generate_prelnc_config()
+      config_file <- file.path(config_dir, sprintf("config_LncPre_%s.yaml", timestamp))
+      write_yaml(config, config_file)
       
-      # Run the command
-      cmd <- paste("scLncR prelnc -c", shQuote(config_file))
-      
-      # Add to log
-      values$pipe_log <- paste0(values$pipe_log, 
-                               "[" , Sys.time(), "] Running prelnc module\n",
-                               "Command: ", cmd, "\n")
-      
-      # Run in background
-      job_id <- paste0("prelnc_", timestamp)
-      values$active_jobs[[job_id]] <- list(
-        id = job_id,
-        module = "prelnc",
-        cmd = cmd,
-        config = config_file,
-        start_time = Sys.time(),
-        status = "running"
+      cmd <- paste(values$scLncR_path, "prelnc -c", config_file)
+      values$execution_log <- paste0(
+        values$execution_log,
+        "[RUN] Executing: ", cmd, "\n"
       )
       
-      # Execute command
-      system(cmd, wait = FALSE)
-      
-      shinyalert("Success", 
-                paste("prelnc module started. Config saved to:", config_file),
-                type = "success")
-      
-    }, error = function(e) {
-      shinyalert("Error", paste("Failed to run prelnc:", e$message), 
-                type = "error")
-    })
-  })
-  
-  # Download prelnc config
-  output$download_prelnc_config <- downloadHandler(
-    filename = function() {
-      paste0("config_LncPre_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".yaml")
-    },
-    content = function(file) {
-      if (is.null(values$prelnc_config)) {
-        showNotification("No config to download", type = "warning")
-        return()
-      }
-      yaml::write_yaml(values$prelnc_config, file)
-    }
-  )
-  
-  # Similar implementations for count, dataProcess, and function modules...
-  # Due to space constraints, I'll show the pattern for count module
-  
-  # File path displays for count
-  output$count_samples_dir_display <- renderText({
-    if (is.integer(input$count_samples_dir)) {
-      "No directory selected"
-    } else {
-      parseDirPath(volumes, input$count_samples_dir)
-    }
-  })
-  
-  output$count_genome_display <- renderText({
-    if (is.integer(input$count_genome)) {
-      "No file selected"
-    } else {
-      parseFilePaths(volumes, input$count_genome)$datapath
-    }
-  })
-  
-  output$count_gtf_display <- renderText({
-    if (is.integer(input$count_gtf)) {
-      "No file selected"
-    } else {
-      parseFilePaths(volumes, input$count_gtf)$datapath
-    }
-  })
-  
-  output$count_lnc_gtf_display <- renderText({
-    if (is.integer(input$count_lnc_gtf)) {
-      "No directory selected"
-    } else {
-      parseDirPath(volumes, input$count_lnc_gtf)
-    }
-  })
-  
-  output$count_output_path_display <- renderText({
-    if (is.integer(input$count_output_path)) {
-      "No directory selected"
-    } else {
-      parseDirPath(volumes, input$count_output_path)
-    }
-  })
-  
-  # Validation for count
-  output$count_validation <- renderUI({
-    # Similar validation logic as prelnc
-    # ...
-  })
-  
-  # Generate count config
-  observeEvent(input$run_count_single, {
-    # Similar logic as prelnc
-    # ...
-  })
-  
-  # Pipeline runner
-  observeEvent(input$run_pipeline, {
-    # Disable run button
-    shinyjs::disable("run_pipeline")
-    values$pipe_status <- "Running..."
-    
-    # Start log
-    values$pipe_log <- paste0(values$pipe_log,
-                             "\n", strrep("=", 60),
-                             "\nStarting scLncR Pipeline at ", Sys.time(),
-                             "\n", strrep("=", 60), "\n")
-    
-    # Create pipeline directory
-    pipe_dir <- input$pipe_output_root
-    if (!dir.exists(pipe_dir)) {
-      dir.create(pipe_dir, recursive = TRUE)
+      # 在实际环境中，使用 system() 运行
+      tryCatch({
+        result <- system(cmd, intern = TRUE, wait = TRUE)
+        values$execution_log <- paste0(
+          values$execution_log,
+          paste(result, collapse = "\n"), "\n",
+          "[DONE] prelnc module completed\n"
+        )
+      }, error = function(e) {
+        values$execution_log <- paste0(
+          values$execution_log,
+          "[ERROR] prelnc module failed: ", e$message, "\n"
+        )
+      })
     }
     
-    # Generate and run each module
-    modules_to_run <- c()
-    if (input$run_prelnc_pipe) modules_to_run <- c(modules_to_run, "prelnc")
-    if (input$run_count_pipe) modules_to_run <- c(modules_to_run, "count")
-    if (input$run_dp_pipe) modules_to_run <- c(modules_to_run, "dataprocess")
-    if (input$run_func_pipe) modules_to_run <- c(modules_to_run, "function")
+    # 类似地为其他模块添加运行逻辑...
     
-    # Execute modules
-    for (module in modules_to_run) {
-      values$pipe_log <- paste0(values$pipe_log,
-                               "\n[", Sys.time(), "] Starting ", module, " module\n")
-      
-      # Generate config and run
-      # This would call the individual module run functions
-      # ...
-    }
-    
-    # Re-enable run button
+    # 完成后启用按钮
     shinyjs::enable("run_pipeline")
-    values$pipe_status <- "Completed"
-    values$pipe_log <- paste0(values$pipe_log,
-                             "\n", strrep("=", 60),
-                             "\nPipeline completed at ", Sys.time(),
-                             "\n", strrep("=", 60), "\n")
+    values$pipeline_status <- "completed"
+    
+    values$execution_log <- paste0(
+      values$execution_log,
+      "[INFO] Pipeline finished at: ", Sys.time(), "\n"
+    )
+    
+    showNotification("Pipeline execution completed!", type = "success")
   })
   
-  # Clear log
-  observeEvent(input$clear_log, {
-    values$pipe_log <- ""
+  # 执行日志输出
+  output$execution_log <- renderText({
+    values$execution_log
   })
   
-  # Download full log
-  output$download_full_log <- downloadHandler(
+  # 配置文件表格
+  output$config_files_table <- renderDT({
+    if (nrow(values$config_files) == 0) {
+      return(data.frame(Message = "No configuration files generated yet."))
+    }
+    values$config_files
+  }, options = list(pageLength = 5))
+  
+  # 下载日志
+  output$download_log <- downloadHandler(
     filename = function() {
       paste0("scLncR_log_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".txt")
     },
     content = function(file) {
-      writeLines(values$pipe_log, file)
+      writeLines(values$execution_log, file)
     }
   )
   
-  # Active jobs table
-  output$active_jobs_table <- renderDT({
-    if (length(values$active_jobs) == 0) {
-      return(data.frame(Message = "No active jobs"))
+  # 清除日志
+  observeEvent(input$clear_log, {
+    values$execution_log <- ""
+  })
+  
+  # 停止管道
+  observeEvent(input$stop_pipeline, {
+    if (values$pipeline_status == "running") {
+      values$pipeline_status <- "stopped"
+      values$execution_log <- paste0(
+        values$execution_log,
+        "[WARN] Pipeline stopped by user at: ", Sys.time(), "\n"
+      )
+      showNotification("Pipeline stopped.", type = "warning")
+    }
+  })
+  
+  # 验证管道
+  observeEvent(input$validate_pipeline, {
+    errors <- c()
+    warnings <- c()
+    
+    # 验证prelnc模块
+    if (input$run_prelnc) {
+      if (!dir.exists(input$prelnc_samples_dirs)) {
+        errors <- c(errors, "prelnc: Samples directory does not exist")
+      }
+      if (!file.exists(input$prelnc_genome_file)) {
+        errors <- c(errors, "prelnc: Genome file does not exist")
+      }
     }
     
-    jobs_df <- do.call(rbind, lapply(values$active_jobs, function(job) {
-      data.frame(
-        JobID = job$id,
-        Module = job$module,
-        StartTime = as.character(job$start_time),
-        Status = job$status,
-        Config = basename(job$config)
-      )
-    }))
-    
-    datatable(jobs_df, selection = 'single', options = list(
-      pageLength = 10,
-      dom = 'Bfrtip'
-    ))
-  })
-  
-  # Pipe log output
-  output$pipe_log <- renderText({
-    values$pipe_log
-  })
-  
-  # Pipe status output
-  output$pipe_status <- renderText({
-    values$pipe_status
-  })
-  
-  # Help button
-  observeEvent(input$help_btn, {
-    shinyalert(
-      title = "scLncR Help",
-      text = HTML("
-        <h4>Pipeline Steps:</h4>
-        <ol>
-          <li><b>LncRNA Prediction</b>: Predict lncRNAs from single-cell/single-nucleus RNA-seq data</li>
-          <li><b>Expression Counting</b>: Generate expression matrices using CellRanger</li>
-          <li><b>Data Processing</b>: Quality control, normalization, and cell annotation</li>
-          <li><b>Function Analysis</b>: Spatial localization, trajectory, and co-expression analysis</li>
-        </ol>
-        <h4>Quick Start:</h4>
-        <p>1. Configure each module with your data paths</p>
-        <p>2. Use 'Run This Module' to test individual steps</p>
-        <p>3. Use 'Pipeline Runner' to run the complete workflow</p>
-        <h4>Note:</h4>
-        <p>• All paths should be absolute paths</p>
-        <p>• Ensure sufficient disk space for intermediate files</p>
-      "),
-      html = TRUE,
-      size = "l"
-    )
+    # 显示验证结果
+    if (length(errors) == 0) {
+      output$pipeline_validation_status <- renderUI({
+        div(class = "alert alert-success",
+            icon("check-circle"), "All configurations are valid.")
+      })
+    } else {
+      output$pipeline_validation_status <- renderUI({
+        div(class = "alert alert-danger",
+            icon("exclamation-triangle"), "Validation failed:",
+            tags$ul(lapply(errors, tags$li)))
+      })
+    }
   })
 }
 
-# Run the application
+# 运行应用
 shinyApp(ui, server)

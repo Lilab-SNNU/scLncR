@@ -1,29 +1,44 @@
-# scLncR Pipeline Overview
+# scLncR Shiny GUI
 
-The scLncR pipeline is designed for comprehensive analysis of long non-coding RNAs (lncRNAs) from single-cell RNA sequencing data. The pipeline consists of four main modules:
+## Overview
 
-## Pipeline Modules
+scLncR is a comprehensive pipeline for single-cell long non-coding RNA analysis. This Shiny GUI provides a user-friendly interface to configure and run the entire pipeline.
 
-1. **LncRNA Prediction** - Identify and annotate lncRNAs from single-nucleus RNA-seq data
-2. **Expression Counting** - Generate expression count matrices from aligned BAM files
-3. **Data Processing** - Quality control, normalization, and preprocessing of expression data
-4. **Functional Analysis** - Downstream analysis to explore lncRNA function
+## Modules
 
-## Workflow
+### 1. LncRNA Prediction
+- Predicts lncRNAs from single-cell/single-nucleus RNA-seq data
+- Requires: Sample directories, reference genome, annotation GTF
+- Outputs: Predicted lncRNA GTF file
 
-The standard workflow proceeds sequentially through these modules, but each module can also be run independently if you have intermediate data.
+### 2. Expression Counting
+- Generates expression count matrices
+- Uses CellRanger for alignment and counting
+- Requires: lncRNA GTF from previous step
 
-## Features
+### 3. Data Processing
+- Quality control, normalization, and preprocessing
+- Cell type annotation using SingleR or scMM
+- Clustering and visualization
 
-- **Complete Pipeline Management**: Configure and run all four scLncR modules
-- **Visual Parameter Configuration**: Intuitive interface for all YAML parameters
-- **File Browser Integration**: Built-in file/directory selection
-- **Real-time Monitoring**: Live job monitoring and log display
-- **Configuration Export**: Save and load configuration files
-- **Project Management**: Organize analyses by project
+### 4. Function Analysis
+- Location analysis (differential expression)
+- Trajectory analysis with Monocle2
+- Co-expression network analysis with WGCNA
 
 ## Quick Start
 
-1. **Install R dependencies**:
-   ```bash
-   Rscript -e "install.packages(c('shiny', 'shinydashboard', 'shinyjs', 'shinyWidgets', 'shinyFiles', 'yaml', 'DT', 'fs', 'processx'))"
+1. Configure each module with your data paths
+2. Validate the configurations
+3. Generate configuration files
+4. Run the pipeline
+5. Monitor progress and view results
+
+## File Requirements
+
+### Input Files
+- FASTQ/BAM files for each sample
+- Reference genome (FASTA format)
+- Gene annotation (GTF format)
+
+### Output Structure

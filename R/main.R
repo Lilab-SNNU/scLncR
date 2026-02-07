@@ -61,6 +61,9 @@ if (cmd == "prelnc") {
   source(file.path(script_dir, "R", "utils", "config_loader_function.R"))
   source(file.path(script_dir, "R", "modules", "scLncR_function.R"))
   run_function(sub_args, script_dir)
+} else if (cmd == "shiny") {
+  shiny_path <- file.path(script_dir, "shiny_app", "launch.R")
+  system(paste0("Rscript ", shiny_path))
 } else {
   cat("Error: Unknown command '", cmd, "'.\n", sep = "")
   cat("Run 'scLncR -h' for available commands.\n")

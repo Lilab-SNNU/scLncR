@@ -75,6 +75,7 @@ Available commands:
   count         Get scRNA-seq expression count matrix 
   dataProcess   ScRNA-seq expression count preprocess and annotation 
   function      DownStream analysis to explore lncRNA function 
+  shiny         Launch Shiny GUI
 
 Examples:
   scLncR prelnc -c config.yaml
@@ -95,7 +96,49 @@ $ scLncR dataProcess -c scLncR/R/confings/config_dataProcess.yaml
 $ scLncR function -c scLncR/R/confings/config_function.yaml
 ```
 ### Run scLncR in graphical user interface(GUI) 
-   Step1:Open the shiny.R in Rstudio
+#### Method 1 :Open the shiny in Rstudio
+```text
+After opening RStudio, click the menu:
+File → New Project → Existing Directory → Select the scLncR directory
+
+In RStudio's file explorer:
+1. Navigate to the scLncR/shiny_app directory
+2. Double-click to open the app.R file
+
+Method A: Using the Run Button
+In the upper right corner of the app.R editor, click the "Run App" button.
+Or click the drop-down arrow next to it and select the run port.
+
+Method B: Using Keyboard Shortcuts
+In the app.R file, press Ctrl + Shift + Enter (Windows/Linux)
+Or Cmd + Shift + Enter (Mac)
+
+Method C: Running in the Console
+Ensure the working directory is correct:
+setwd("/home/data/scLncR/scLncR/shiny_app")
+shiny::runApp()
+```
+#### Method 2 :Open the shiny in command
+
+```shell
+$ scLCnR shiny
+$ # Then Open the port print in shell,such as 
+Setting up environment...
+Found scLncR at: opt/scLncR/scLncR
+Installation directory: opt/scLncR
+Launching Shiny app from: opt/scLncR/shiny_app
+Server will be available at: http://localhost:3838
+Press Ctrl+C to stop the server
+
+
+Listening on http://0.0.0.0:3838
+```
+Then, open the IP in your browser.
+
+You can get the GUI:
+
+![alt text](figures/Shiny_GUI.png)
+
 
 ---
 ## Contact us
