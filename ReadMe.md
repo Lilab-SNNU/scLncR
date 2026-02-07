@@ -1,7 +1,7 @@
 # scLncR
 A pipeline to predict and analysis lncRNA from scRNA-seq.
 
-![alt text](<figures/scLncR workflow.png>)
+![alt text](<figures/scLncR_workflow.png>)
 
 ---
 ### Download
