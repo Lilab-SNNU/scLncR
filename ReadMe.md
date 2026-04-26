@@ -20,7 +20,7 @@ $ conda create -f scLncR.yaml
 $ conda activate scLncR
 $ export PATH="/path/to/scLncR:$PATH"
 ```
-The R package of hdWGCNA need install independent in terminal or Rstudio.
+The R package of hdWGCNA and scMayoMap need install independent in terminal or Rstudio.
 ```R
 # install Bioconductor
 install.packages("BiocManager")
@@ -28,6 +28,11 @@ BiocManager::install()
 
 # install hdWGCNA from GitHub
 devtools::install_github('smorabit/hdWGCNA', ref='dev')
+
+# install scMayoMap from GitHub
+devtools::install_github("chloelulu/scMayoMap")
+
+## Detailed installation instructions and dependencies for hdWGCNA and scMayoMap can be found in theirgithub repositories.
 ```
 
 If you do not have conda, you can also manually install the required R packages listed below.
@@ -38,18 +43,27 @@ If you do not have conda, you can also manually install the required R packages 
 - monocle2, version 2.30.0(https://cole-trapnell-lab.github.io/monocle-release/docs/)
 - hdWGCNA, version 0.4.4(https://smorabit.github.io/hdWGCNA/)
 - stringr, version 1.5.1(https://cran.r-project.org/web/packages/stringr/index.html)
-- shiny, version 1.8.1.1(https://shiny.posit.co/)
-- shinyjs, version 2.1.0(https://cran.r-project.org/web/packages/shinyjs/index.html)
+- singler, version 2.4.0(https://bioconductor.org/packages//release/bioc/html/SingleR.html)
+- scmayomap, version 1.0.0(https://github.com/chloelulu/scMayoMap)
 - tidyverse, version 2.0.0(https://www.tidyverse.org/)
+- this.path, version 2.5.0(https://cran.r-project.org/web/packages/this.path/index.html)
 - dplyr, version 1.1.4(https://dplyr.tidyverse.org/)
 - psych, version 2.4.3(https://www.rdocumentation.org/packages/psych)
 - pheatmap, version 1.0.12(https://cran.r-project.org/web/packages/pheatmap/index.html)
 - ggsci, version 3.1.0(https://cran.r-project.org/web/packages/ggsci/index.html)
 - ggplot2, version 3.5.1(https://ggplot2.tidyverse.org/)
+- gridextra, version 2.3(https://cran.r-project.org/web/packages/gridExtra/index.html)
 - patchwork, version 1.2.0(https://patchwork.data-imaginist.com/)
 - reshape2, version 1.4.4(https://cran.r-project.org/web/packages/reshape2/index.html)
 - yaml, version 2.3.10(https://cran.r-project.org/web/packages/yaml/index.html)
 - optparse, version 1.7.5(https://cran.r-project.org/web/packages/optparse/index.html)
+- shiny, version 1.8.1.1(https://shiny.posit.co/)
+- shinyjs, version 2.1.0(https://cran.r-project.org/web/packages/shinyjs/index.html)
+- shinybs, version 0.61.1(https://cran.r-project.org/web/packages/shinyBS/index.html)
+- shinydashboard, 0.7.3(https://cran.r-project.org/web/packages/shinydashboard/index.html)
+- shinydashboardplus, version 2.0.6(https://cran.r-project.org/web/packages/shinydashboardPlus/index.html)
+- shinyfiles, version 0.9.3(https://cran.r-project.org/web/packages/shinyFiles/index.html)
+- shinywidgets, version 0.9.0(https://cran.r-project.org/web/packages/shinyWidgets/index.html)
 
 
 **Bioinformatics Software**
