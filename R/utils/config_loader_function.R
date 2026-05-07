@@ -54,7 +54,7 @@ load_LncExplore_config <- function(config_path) {
   # The validation logic is encapsulated as an internal function (to keep the main flow clear).
   validate_location <- function(loc_cfg) {
     req <- c("LOG2FC_THRESH", "PADJ_THRESH", "output_path", "lncRNA_name")
-    if (any(!req %in% names(loc_cfg))) stop("Missing required 'location' parameters")
+    if (any(!req %in% names(loc_cfg))) stop("Missing required 'location' parameters (snRNA/scRNA enrichment module)")
     if (loc_cfg$LOG2FC_THRESH <= 0) stop("'location$LOG2FC_THRESH' must be > 0")
     if (loc_cfg$PADJ_THRESH <= 0 || loc_cfg$PADJ_THRESH > 1) stop("'location$PADJ_THRESH' must be in (0,1]")
     if (grepl("[^a-zA-Z0-9-]", loc_cfg$lncRNA_name)) stop("Invalid chars in lncRNA_name")
@@ -85,7 +85,7 @@ load_LncExplore_config <- function(config_path) {
   if ("location" %in% run_modules) {
     if (is.null(cfg$location)) stop("Module 'location' selected but 'location' section missing in config")
     validate_location(cfg$location)
-    message("✓ Validated: Location Analysis parameters")
+    message("✓ Validated: snRNA/scRNA Enrichment Analysis parameters")
   }
   
   if ("monocle2" %in% run_modules) {

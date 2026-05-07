@@ -16,10 +16,22 @@ $ git clone https://github.com/Lilab-SNNU/scLncR.git
 You can configure scLncR environment using conda.
 ```shell
 $ cd scLncR
-$ conda create -f scLncR.yaml 
+$ conda env create -f scLncR.yaml 
+
+$ # Make the scLncR launcher executable
+$ chmod +x scLncR
+
+$ # Add scLncR to PATH permanently for bash users
+$ echo "export PATH=\"$(pwd):\$PATH\"" >> ~/.bashrc
+
+$ # Reload shell configuration
+$ source ~/.bashrc
+
+$ # Test installation
 $ conda activate scLncR
-$ export PATH="/path/to/scLncR:$PATH"
+$ scLncR -h
 ```
+
 The R package of hdWGCNA and scMayoMap need install independent in terminal or Rstudio.
 ```R
 # install Bioconductor
@@ -76,6 +88,9 @@ If you do not have conda, you can also manually install the required R packages 
 
 ### Usage
 scLncR supports two modes of usage: command-line operation and a Shiny GUI interface.
+
+For the `function` module, the `location` submodule should be interpreted as **snRNA/scRNA expression enrichment analysis** (snRNA-enriched, scRNA-enriched, or balanced/non-differential expression).  
+These results come from differential expression between snRNA-seq and scRNA-seq groups and should not be used alone as proof of true nuclear/cytoplasmic localization without independent validation.
 
 ### Command-line usage:
 ***scLncR Main Program***

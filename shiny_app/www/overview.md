@@ -22,9 +22,11 @@ scLncR is a comprehensive pipeline for single-cell long non-coding RNA analysis.
 - Clustering and visualization
 
 ### 4. Function Analysis
-- Location analysis (differential expression)
+- snRNA/scRNA expression enrichment analysis (differential expression between snRNA-seq and scRNA-seq groups)
 - Trajectory analysis with Monocle2
 - Co-expression network analysis with WGCNA
+
+Note: enrichment results indicate relative expression patterns (snRNA-enriched or scRNA-enriched) and are not standalone evidence of true subcellular localization.
 
 ## Quick Start
 

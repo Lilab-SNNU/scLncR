@@ -444,7 +444,7 @@ ui <- dashboardPage(
             hr(),
             checkboxGroupInput("func_run_modules", "Modules to Run",
                               choices = list(
-                                "Location Analysis" = "location",
+                                "snRNA/scRNA Enrichment Analysis" = "location",
                                 "Monocle2 Trajectory" = "monocle2",
                                 "WGCNA Co-expression" = "wgcna"
                               ),
@@ -454,15 +454,15 @@ ui <- dashboardPage(
           box(
             width = 4,
             status = "success",
-            title = "Location Analysis Parameters",
+            title = "snRNA/scRNA Enrichment Analysis Parameters",
             solidHeader = TRUE,
             numericInput("func_location_log2fc", "Log2FC Threshold",
                         value = 0.25, min = 0, max = 2, step = 0.05),
             numericInput("func_location_padj", "Adjusted P-value Threshold",
                         value = 0.05, min = 0.001, max = 0.1, step = 0.001),
             textInput("func_location_output", "Output Path",
-                     value = "./location_results",
-                     placeholder = "Output directory for location analysis"),
+                     value = "./sn_sc_enrichment_results",
+                     placeholder = "Output directory for snRNA/scRNA enrichment analysis"),
             textInput("func_location_lnc_name", "lncRNA Name Prefix",
                      value = "scLncR",
                      placeholder = "Prefix for lncRNA naming")
@@ -520,8 +520,8 @@ ui <- dashboardPage(
             solidHeader = TRUE,
             h5("Module Prerequisites:"),
             tags$ul(
-              tags$li(tags$strong("Location Analysis:"), 
-                     "Requires preprocessed Seurat object with cell annotations"),
+              tags$li(tags$strong("snRNA/scRNA Enrichment Analysis:"),
+                     "Compares differential expression between snRNA-seq and scRNA-seq groups; does not by itself prove subcellular localization"),
               tags$li(tags$strong("Monocle2:"), 
                      "Requires cell type annotations and variable features"),
               tags$li(tags$strong("WGCNA:"), 

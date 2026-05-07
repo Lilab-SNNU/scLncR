@@ -1,81 +1,74 @@
-########################################***Location analysis***########################################
+########################################***snRNA/scRNA enrichment analysis***########################################
 
-LocationAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, output_path="./", lncRNA_name="scLncR"){
-    dir.create(output_path)
+SnScEnrichmentAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, output_path="./", lncRNA_name="scLncR"){
+    dir.create(output_path, recursive = TRUE, showWarnings = FALSE)
     setwd(output_path)
-    # Check whether seu_obj contains Group and cell_date (or use seurat_clusters)
     if (!("cell_type" %in% colnames(seu_obj@meta.data))) {
       seu_obj$cell_type <- as.character(seu_obj$seurat_clusters)
     }
 
     cell_types <- sort(unique(seu_obj$cell_type))
 
-    # Store each type of gene
-    cyto_genes_list <- list()
-    nuc_genes_list <- list()
+    sc_enriched_genes_list <- list()
+    sn_enriched_genes_list <- list()
     balanced_genes_list <- list()
     deg_full_list <- list()
 
-
     for (ct in cell_types) {
       message("Processing cell type: ", ct)
-      
+
       subset_obj <- subset(seu_obj, subset = cell_type == ct)
       Idents(subset_obj) <- subset_obj$site
-      
+
       group_table <- table(Idents(subset_obj))
       if (length(group_table) < 2 || any(group_table == 0)) {
         message("  -> Skipping: only one group present.")
-        cyto_genes_list[[ct]] <- character(0)
-        nuc_genes_list[[ct]] <- character(0)
+        sc_enriched_genes_list[[ct]] <- character(0)
+        sn_enriched_genes_list[[ct]] <- character(0)
         balanced_genes_list[[ct]] <- character(0)
         next
       }
-      
+
       deg <- FindMarkers(
         object = subset_obj,
-        ident.1 = "scRNA",          # scRNA-seq
-        ident.2 = "snRNA",      # snRNA-seq
+        ident.1 = "scRNA",
+        ident.2 = "snRNA",
         test.use = "wilcox",
         logfc.threshold = 0,
         min.pct = 0.1,
         return.thresh = 1
       )
-      
+
       if (nrow(deg) == 0) {
-        cyto_genes_list[[ct]] <- character(0)
-        nuc_genes_list[[ct]] <- character(0)
+        sc_enriched_genes_list[[ct]] <- character(0)
+        sn_enriched_genes_list[[ct]] <- character(0)
         balanced_genes_list[[ct]] <- character(0)
         deg_full_list[[ct]] <- deg
         next
       }
-      
+
       deg_df <- as.data.frame(deg)
       if ("gene" %in% colnames(deg_df)) deg_df$gene <- NULL
       deg_df <- deg_df %>%
         rownames_to_column("gene") %>%
         mutate(
           category = case_when(
-            avg_log2FC > LOG2FC_THRESH & p_val_adj < PADJ_THRESH ~ "Cytoplasm-enriched",
-            avg_log2FC < -LOG2FC_THRESH & p_val_adj < PADJ_THRESH ~ "Nucleus-enriched",
-            TRUE ~ "Balanced/Non-DE"
+            avg_log2FC > LOG2FC_THRESH & p_val_adj < PADJ_THRESH ~ "scRNA-enriched",
+            avg_log2FC < -LOG2FC_THRESH & p_val_adj < PADJ_THRESH ~ "snRNA-enriched",
+            TRUE ~ "Balanced/Non-differential"
           )
         )
-      
-      cyto_genes_list[[ct]] <- deg_df$gene[deg_df$category == "Cytoplasm-enriched"]
-      nuc_genes_list[[ct]]  <- deg_df$gene[deg_df$category == "Nucleus-enriched"]
-      balanced_genes_list[[ct]] <- deg_df$gene[deg_df$category == "Balanced/Non-DE"]
-      
+
+      sc_enriched_genes_list[[ct]] <- deg_df$gene[deg_df$category == "scRNA-enriched"]
+      sn_enriched_genes_list[[ct]] <- deg_df$gene[deg_df$category == "snRNA-enriched"]
+      balanced_genes_list[[ct]] <- deg_df$gene[deg_df$category == "Balanced/Non-differential"]
+
       deg_full_list[[ct]] <- deg_df
-      
-      message("  -> Cyto:", length(cyto_genes_list[[ct]]), 
-              "; Nuc:", length(nuc_genes_list[[ct]]),
+
+      message("  -> scRNA-enriched:", length(sc_enriched_genes_list[[ct]]),
+              "; snRNA-enriched:", length(sn_enriched_genes_list[[ct]]),
               "; Balanced:", length(balanced_genes_list[[ct]]))
     }
-
-    # -----------------------------
-    # Summary: Building Long Format DataFrame for Visualization
-    # -----------------------------
 
     summary_list <- tibble(
       cell_type = character(),
@@ -84,126 +77,107 @@ LocationAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, outp
       proportion = numeric()
     )
 
-    for (ct in names(cyto_genes_list)) {
-      total <- length(cyto_genes_list[[ct]]) + length(nuc_genes_list[[ct]]) + length(balanced_genes_list[[ct]])
+    for (ct in names(sc_enriched_genes_list)) {
+      total <- length(sc_enriched_genes_list[[ct]]) + length(sn_enriched_genes_list[[ct]]) + length(balanced_genes_list[[ct]])
       if (total == 0) next
-      
+
       df_temp <- tibble(
         cell_type = ct,
-        category = c("Cytoplasm-enriched", "Nucleus-enriched", "Balanced/Non-DE"),
-        count = c(length(cyto_genes_list[[ct]]), length(nuc_genes_list[[ct]]), length(balanced_genes_list[[ct]]))
+        category = c("scRNA-enriched", "snRNA-enriched", "Balanced/Non-differential"),
+        count = c(length(sc_enriched_genes_list[[ct]]), length(sn_enriched_genes_list[[ct]]), length(balanced_genes_list[[ct]]))
       ) %>%
         mutate(proportion = count / total)
-      
+
       summary_list <- bind_rows(summary_list, df_temp)
     }
 
-    # Save classification results
-    dir.create("nuc_vs_cyto_results", showWarnings = FALSE)
+    dir.create("sn_vs_sc_enrichment_results", showWarnings = FALSE, recursive = TRUE)
     saveRDS(list(
-      cyto = cyto_genes_list,
-      nuc = nuc_genes_list,
+      sc = sc_enriched_genes_list,
+      sn = sn_enriched_genes_list,
       balanced = balanced_genes_list,
       deg_full = deg_full_list
-    ), file = "nuc_vs_cyto_results/gene_classification.rds")
+    ), file = "sn_vs_sc_enrichment_results/gene_classification.rds")
 
-    write.csv(summary_list, "nuc_vs_cyto_results/gene_category_summary.csv", row.names = FALSE)
-    write.csv(deg_full_list, "nuc_vs_cyto_results.csv")
+    write.csv(summary_list, "sn_vs_sc_enrichment_results/gene_category_summary.csv", row.names = FALSE)
+    write.csv(deg_full_list, "sn_vs_sc_enrichment_results.csv")
 
-    # ------------------------------------------------------------
-    # 1: Draw a percentage stack plot of nuclear vs. cytoplasmic genes based on cellotype (excluding Balanced)
-    # ------------------------------------------------------------
-
-    # Reconstruct a summary table containing only nuclear/cytoplasmic genes
-    nuc_cyto_summary <- tibble(
+    sn_sc_summary <- tibble(
       cell_type = character(),
       category = character(),
       count = numeric()
     )
 
-    for (ct in names(cyto_genes_list)) {
-      n_cyto <- length(cyto_genes_list[[ct]])
-      n_nuc  <- length(nuc_genes_list[[ct]])
-      
-      # Only added when at least one type of gene exist
-      
+    for (ct in names(sc_enriched_genes_list)) {
+      n_sc <- length(sc_enriched_genes_list[[ct]])
+      n_sn <- length(sn_enriched_genes_list[[ct]])
+
       df_temp <- tibble(
         cell_type = ct,
-        category = c("Cytoplasm-enriched", "Nucleus-enriched"),
-        count = c(n_cyto, n_nuc)
+        category = c("scRNA-enriched", "snRNA-enriched"),
+        count = c(n_sc, n_sn)
       )
-      nuc_cyto_summary <- bind_rows(nuc_cyto_summary, df_temp)
+      sn_sc_summary <- bind_rows(sn_sc_summary, df_temp)
     }
 
-    # Convert to proportion (calculate percentage by grouping cells by type)
-    nuc_cyto_summary <- nuc_cyto_summary %>%
+    sn_sc_summary <- sn_sc_summary %>%
       group_by(cell_type) %>%
       mutate(percentage = count / sum(count) * 100) %>%
       ungroup()
 
-    # Set factor order (with Cytoplasma on top, Nucleus on bottom, or vice versa)
-    nuc_cyto_summary$category <- factor(nuc_cyto_summary$category,
-                                        levels = c("Nucleus-enriched", "Cytoplasm-enriched"))
+    sn_sc_summary$category <- factor(
+      sn_sc_summary$category,
+      levels = c("snRNA-enriched", "scRNA-enriched")
+    )
 
-    # Percentage Stacked Bar Chart
-    p_stack_pct <- ggplot(nuc_cyto_summary, aes(x = cell_type, y = percentage, fill = category)) +
-      geom_col(position = "fill") +  # position="fill" 实现 100% 堆叠
+    p_stack_pct <- ggplot(sn_sc_summary, aes(x = cell_type, y = percentage, fill = category)) +
+      geom_col(position = "fill") +
       scale_y_continuous(labels = scales::percent_format()) +
       scale_fill_manual(values = c(
-        "Nucleus-enriched" = "#E41A1C",
-        "Cytoplasm-enriched" = "#377EB8"
+        "snRNA-enriched" = "#E41A1C",
+        "scRNA-enriched" = "#377EB8"
       )) +
       labs(
-        title = "Nuclear vs Cytoplasmic Enriched Genes by Cell Type",
+        title = "snRNA/scRNA Enriched Genes by Cell Type",
         x = "Cell Type",
         y = "Proportion",
-        fill = "Gene Localization"
+        fill = "Expression Enrichment Category"
       ) +
       theme_minimal(base_size = 10) +
       theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-    ggsave("nuc_vs_cyto_results/stacked_pct_nuc_vs_cyto.png", p_stack_pct, width = 8, height = 5, dpi=600)
-    ggsave("nuc_vs_cyto_results/stacked_pct_nuc_vs_cyto.pdf", p_stack_pct, width = 8, height = 5, dpi=600)
+    ggsave("sn_vs_sc_enrichment_results/stacked_pct_sn_vs_sc_enrichment.png", p_stack_pct, width = 8, height = 5, dpi=600)
+    ggsave("sn_vs_sc_enrichment_results/stacked_pct_sn_vs_sc_enrichment.pdf", p_stack_pct, width = 8, height = 5, dpi=600)
 
-    # ------------------------------------------------------------
-    # 2: Statistics on how many cellypes lncRNAs (eg "scLncR") appear in
-    # ------------------------------------------------------------
-
-    # Merge all nuclear enriched and cytoplasmic enriched lncRNAs
-    all_cyto_lnc <- unlist(cyto_genes_list)[startsWith(unlist(cyto_genes_list), lncRNA_name)]
-    all_nuc_lnc  <- unlist(nuc_genes_list)[startsWith(unlist(nuc_genes_list), lncRNA_name)]
-
-    # Merge and deduplicate
-    all_lnc_genes <- unique(c(all_cyto_lnc, all_nuc_lnc))
+    all_sc_lnc <- unlist(sc_enriched_genes_list)[startsWith(unlist(sc_enriched_genes_list), lncRNA_name)]
+    all_sn_lnc <- unlist(sn_enriched_genes_list)[startsWith(unlist(sn_enriched_genes_list), lncRNA_name)]
+    all_lnc_genes <- unique(c(all_sc_lnc, all_sn_lnc))
+    lnc_freq_df <- tibble(gene = character(), frequency = integer())
 
     if (length(all_lnc_genes) == 0) {
-      message("Warning: No lncRNA found in enriched gene lists.")
+      message("Warning: No lncRNA found in enrichment gene lists.")
     } else {
-      # Count how many cellypes each lncRNA appears in
       lnc_freq <- integer(length(all_lnc_genes))
       names(lnc_freq) <- all_lnc_genes
-      
+
       for (gene in all_lnc_genes) {
         count_cts <- 0
-        for (ct in names(cyto_genes_list)) {
-          if (gene %in% cyto_genes_list[[ct]] || gene %in% nuc_genes_list[[ct]]) {
+        for (ct in names(sc_enriched_genes_list)) {
+          if (gene %in% sc_enriched_genes_list[[ct]] || gene %in% sn_enriched_genes_list[[ct]]) {
             count_cts <- count_cts + 1
           }
         }
         lnc_freq[gene] <- count_cts
       }
-      
-      # Convert to dataframe and sort
+
       lnc_freq_df <- data.frame(
         gene = names(lnc_freq),
         frequency = as.integer(lnc_freq)
       ) %>%
         arrange(desc(frequency))
-      
-      # Save lncRNA frequency result
-      write.csv(lnc_freq_df, "nuc_vs_cyto_results/lncRNA_frequency.csv", row.names = FALSE)
-      
-      # Visualization: Top 20 lncRNA frequencies
+
+      write.csv(lnc_freq_df, "sn_vs_sc_enrichment_results/lncRNA_frequency.csv", row.names = FALSE)
+
       top_lnc <- head(lnc_freq_df, 20)
       p_lnc <- ggplot(top_lnc, aes(x = reorder(gene, frequency), y = frequency)) +
         geom_col(fill = "purple") +
@@ -214,119 +188,111 @@ LocationAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, outp
           y = "Number of Cell Types"
         ) +
         theme_minimal()
-      
-      ggsave("nuc_vs_cyto_results/top_lncRNAs_frequency.png", p_lnc, width = 6, height = 5, , dpi=600)
-      ggsave("nuc_vs_cyto_results/top_lncRNAs_frequency.pdf", p_lnc, width = 6, height = 5, , dpi=600)
-      
-      message("✅ lncRNA analysis complete. Top lncRNAs plot saved.")
+
+      ggsave("sn_vs_sc_enrichment_results/top_lncRNAs_frequency.png", p_lnc, width = 6, height = 5, dpi=600)
+      ggsave("sn_vs_sc_enrichment_results/top_lncRNAs_frequency.pdf", p_lnc, width = 6, height = 5, dpi=600)
+
+      message("✅ lncRNA enrichment analysis complete. Top lncRNAs plot saved.")
     }
 
-    # ------------------------------------------------------------
-    # 3: lncRNA nuclear vs cytoplasmic enrichment by cell type
-    # ------------------------------------------------------------
-
-    # Create lncRNA-specific summary
-    lnc_nuc_cyto_summary <- tibble(
+    lnc_sn_sc_summary <- tibble(
       cell_type = character(),
       category = character(),
       count = numeric()
     )
 
-    for (ct in names(cyto_genes_list)) {
-      n_cyto_lnc <- length(cyto_genes_list[[ct]][startsWith(cyto_genes_list[[ct]], lncRNA_name)])
-      n_nuc_lnc  <- length(nuc_genes_list[[ct]][startsWith(nuc_genes_list[[ct]], lncRNA_name)])
-      
-      if (n_cyto_lnc + n_nuc_lnc == 0) next  # Skip if no lncRNA in this cell type
-      
+    for (ct in names(sc_enriched_genes_list)) {
+      n_sc_lnc <- length(sc_enriched_genes_list[[ct]][startsWith(sc_enriched_genes_list[[ct]], lncRNA_name)])
+      n_sn_lnc <- length(sn_enriched_genes_list[[ct]][startsWith(sn_enriched_genes_list[[ct]], lncRNA_name)])
+
+      if (n_sc_lnc + n_sn_lnc == 0) next
+
       df_temp <- tibble(
         cell_type = ct,
-        category = c("Cytoplasm-enriched", "Nucleus-enriched"),
-        count = c(n_cyto_lnc, n_nuc_lnc)
+        category = c("scRNA-enriched", "snRNA-enriched"),
+        count = c(n_sc_lnc, n_sn_lnc)
       )
-      lnc_nuc_cyto_summary <- bind_rows(lnc_nuc_cyto_summary, df_temp)
+      lnc_sn_sc_summary <- bind_rows(lnc_sn_sc_summary, df_temp)
     }
 
-    if (nrow(lnc_nuc_cyto_summary) == 0) {
-      message("Warning: No lncRNA found in any cell type for lncRNA-specific plot.")
+    if (nrow(lnc_sn_sc_summary) == 0) {
+      message("Warning: No lncRNA found in any cell type for lncRNA-specific enrichment plot.")
     } else {
-      # Convert to proportion
-      lnc_nuc_cyto_summary <- lnc_nuc_cyto_summary %>%
+      lnc_sn_sc_summary <- lnc_sn_sc_summary %>%
         group_by(cell_type) %>%
         mutate(percentage = count / sum(count) * 100) %>%
         ungroup()
 
-      # Set factor order
-      lnc_nuc_cyto_summary$category <- factor(lnc_nuc_cyto_summary$category,
-                                              levels = c("Nucleus-enriched", "Cytoplasm-enriched"))
+      lnc_sn_sc_summary$category <- factor(
+        lnc_sn_sc_summary$category,
+        levels = c("snRNA-enriched", "scRNA-enriched")
+      )
 
-      # Percentage Stacked Bar Chart for lncRNA only
-      p_lnc_stack_pct <- ggplot(lnc_nuc_cyto_summary, aes(x = cell_type, y = percentage, fill = category)) +
+      p_lnc_stack_pct <- ggplot(lnc_sn_sc_summary, aes(x = cell_type, y = percentage, fill = category)) +
         geom_col(position = "fill") +
         scale_y_continuous(labels = scales::percent_format()) +
         scale_fill_manual(values = c(
-          "Nucleus-enriched" = "#E41A1C",
-          "Cytoplasm-enriched" = "#377EB8"
+          "snRNA-enriched" = "#E41A1C",
+          "scRNA-enriched" = "#377EB8"
         )) +
         labs(
-          title = paste("Nuclear vs Cytoplasmic Enriched", lncRNA_name, "by Cell Type"),
+          title = paste("snRNA/scRNA Enriched", lncRNA_name, "by Cell Type"),
           x = "Cell Type",
-          y = "Proportion of", lncRNA_name, "Genes",
-          fill = "lncRNAs Localization"
+          y = paste("Proportion of", lncRNA_name, "Genes"),
+          fill = "Expression Enrichment Category"
         ) +
         theme_minimal(base_size = 10) +
         theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-      ggsave("nuc_vs_cyto_results/stacked_pct_lncRNA_nuc_vs_cyto.png", p_lnc_stack_pct, width = 8, height = 5, dpi=600)
-      ggsave("nuc_vs_cyto_results/stacked_pct_lncRNA_nuc_vs_cyto.pdf", p_lnc_stack_pct, width = 8, height = 5, dpi=600)
-      
-      message("✅ lncRNA nuclear/cytoplasmic plot saved.")
+      ggsave("sn_vs_sc_enrichment_results/stacked_pct_lncRNA_sn_vs_sc_enrichment.png", p_lnc_stack_pct, width = 8, height = 5, dpi=600)
+      ggsave("sn_vs_sc_enrichment_results/stacked_pct_lncRNA_sn_vs_sc_enrichment.pdf", p_lnc_stack_pct, width = 8, height = 5, dpi=600)
+
+      message("✅ lncRNA snRNA/scRNA enrichment plot saved.")
     }
 
-    # ------------------------------------------------------------
-    # 4: lncRNA nuclear vs cytoplasmic enrichment heatmap
-    # ------------------------------------------------------------
+    if (nrow(lnc_freq_df) == 0) {
+      message("Warning: No lncRNA frequency table available; skipping lncRNA snRNA/scRNA enrichment heatmap.")
+      return(invisible(NULL))
+    }
 
     top_lnc_genes <- head(lnc_freq_df, 20)$gene
-    
-    # Step 2: Build matrix for heatmap (lncRNA x cell_type)
     lnc_matrix <- matrix(NA, nrow = length(top_lnc_genes), ncol = length(cell_types))
     rownames(lnc_matrix) <- top_lnc_genes
     colnames(lnc_matrix) <- cell_types
-    
-    # Fill matrix with localization info
+
     for (gene in top_lnc_genes) {
       for (ct in cell_types) {
-        if (gene %in% cyto_genes_list[[ct]]) {
-          lnc_matrix[gene, ct] <- "Cytoplasm-enriched"
-        } else if (gene %in% nuc_genes_list[[ct]]) {
-          lnc_matrix[gene, ct] <- "Nucleus-enriched"
+        if (gene %in% sc_enriched_genes_list[[ct]]) {
+          lnc_matrix[gene, ct] <- "scRNA-enriched"
+        } else if (gene %in% sn_enriched_genes_list[[ct]]) {
+          lnc_matrix[gene, ct] <- "snRNA-enriched"
         }
-        # Otherwise remains NA (not detected)
       }
     }
-    
-    # Convert to long format for ggplot
-    lnc_matrix <- lnc_matrix[rowSums(!is.na(lnc_matrix)) > 0, , drop = FALSE ]
+
+    lnc_matrix <- lnc_matrix[rowSums(!is.na(lnc_matrix)) > 0, , drop = FALSE]
+    if (nrow(lnc_matrix) == 0) {
+      message("Warning: No lncRNA has snRNA/scRNA enrichment labels across cell types; skipping heatmap.")
+      return(invisible(NULL))
+    }
     lnc_heatmap_df <- reshape2::melt(lnc_matrix)
-    colnames(lnc_heatmap_df) <- c("lncRNA", "cell_type", "localization")
-    
-    # Generate heatmap
-    p_lnc_heatmap <- ggplot(lnc_heatmap_df, aes(x = cell_type, y = lncRNA, fill = localization)) +
+    colnames(lnc_heatmap_df) <- c("lncRNA", "cell_type", "enrichment_category")
+
+    p_lnc_heatmap <- ggplot(lnc_heatmap_df, aes(x = cell_type, y = lncRNA, fill = enrichment_category)) +
       geom_tile() +
       scale_fill_manual(
         values = c(
-          "Nucleus-enriched"    = "#D2691E",
-          "Cytoplasm-enriched"  = "#32CD32"
+          "snRNA-enriched" = "#D2691E",
+          "scRNA-enriched" = "#32CD32"
         ),
-        breaks = c("Nucleus-enriched", "Cytoplasm-enriched"),  # Only show these in legend
-        na.value = "#87CEEB" 
+        breaks = c("snRNA-enriched", "scRNA-enriched"),
+        na.value = "#87CEEB"
       ) +
       labs(
-        title = paste("Subcellular Localization of Top 20 lncRNAs (", lncRNA_name, ") across Cell Types", sep = ""),
+        title = paste("snRNA/scRNA Expression Enrichment of Top 20 lncRNAs (", lncRNA_name, ") across Cell Types", sep = ""),
         x = "Cell Type",
         y = "lncRNA",
-        
-        fill = "Localization"
+        fill = "Expression Enrichment Category"
       ) +
       theme_minimal(base_size = 10) +
       theme(
@@ -335,12 +301,19 @@ LocationAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, outp
         panel.grid.major = element_line(color = "white"),
         legend.position = "right"
       )
-    
-    # Save heatmap
-    ggsave("nuc_vs_cyto_results/lncRNA_localization_heatmap.pdf", p_lnc_heatmap, width = 10, height = 6, dpi=600)
-    ggsave("nuc_vs_cyto_results/lncRNA_localization_heatmap.png", p_lnc_heatmap, width = 10, height = 6, dpi=600)
-    
-    message("✅ lncRNA localization heatmap saved (Top 20 lncRNAs) - NA cells are light blue")
+
+    ggsave("sn_vs_sc_enrichment_results/lncRNA_sn_sc_enrichment_heatmap.pdf", p_lnc_heatmap, width = 10, height = 6, dpi=600)
+    ggsave("sn_vs_sc_enrichment_results/lncRNA_sn_sc_enrichment_heatmap.png", p_lnc_heatmap, width = 10, height = 6, dpi=600)
+
+    message("✅ lncRNA snRNA/scRNA enrichment heatmap saved (Top 20 lncRNAs) - NA cells are light blue")
+}
+
+LocationAnalysis <- function(...) {
+    warning(
+      "LocationAnalysis() is deprecated. Use SnScEnrichmentAnalysis() for snRNA/scRNA enrichment analysis. ",
+      "The result reflects relative expression enrichment between snRNA-seq and scRNA-seq, not direct subcellular localization."
+    )
+    SnScEnrichmentAnalysis(...)
 }
 
 ########################################***Trajectory analysis***########################################
@@ -663,7 +636,7 @@ run_function <- function(args, script_dir) {
   parser <- optparse::OptionParser(
     usage = "[options]",
     option_list = option_list,
-    description = "function explore: Spatial localization, trajectory inference, and co-expression network analysis for lncRNAs"
+    description = "function explore: snRNA/scRNA enrichment, trajectory inference, and co-expression network analysis for lncRNAs"
   )
   
   # Print help if requested or no args
@@ -762,8 +735,8 @@ run_function <- function(args, script_dir) {
       lncRNA_name = cfg$location$lncRNA_name
     )
     results$location <- run_module_safely(
-      "Location Analysis", 
-      "LocationAnalysis", 
+      "snRNA/scRNA Enrichment Analysis",
+      "SnScEnrichmentAnalysis",
       params_loc,
       cfg$location
     )

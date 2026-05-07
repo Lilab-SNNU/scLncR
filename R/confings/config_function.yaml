@@ -1,6 +1,6 @@
 # =============================================================================
 # scLncR - Configuration for LncExplore Module
-# Description: Parameters for Location Analysis, Monocle2 Trajectory, and WGCNA
+# Description: Parameters for snRNA/scRNA Enrichment Analysis, Monocle2 Trajectory, and WGCNA
 # =============================================================================
 
 # Global input (REQUIRED)
@@ -8,12 +8,12 @@ input_seurat: "path/to/integrated_seurat.rds"  # Path to preprocessed Seurat obj
 run_modules: ["location", "monocle2", "wgcna"]  # Modules need analysis (empty list = all modules)
 
 # =============================================================================
-# Location Analysis Parameters
+# snRNA/scRNA Enrichment Analysis Parameters
 # =============================================================================
 location:
   LOG2FC_THRESH: 0.25      # Numeric: Log2FC threshold for differential expression
   PADJ_THRESH: 0.05        # Numeric: Adjusted p-value threshold (0 < x <= 1)
-  output_path: "./location_results"  # String: Output directory for location analysis
+  output_path: "./sn_sc_enrichment_results"  # String: Output directory for snRNA/scRNA enrichment analysis
   lncRNA_name: "scLncR"    # String: Prefix for lncRNA naming (letters, digits, hyphens only)
 
 # =============================================================================
