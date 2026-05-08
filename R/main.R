@@ -20,8 +20,8 @@ if (length(user_args) == 0 ||
   cat("Usage: scLncR <command> [options]\n\n")
   
   cat("Available commands:\n")
-  cat("  prelnc        Predict and annotate lncRNAs from single-nucleus RNA-seq data \n")
-  cat("  count         Get scRNA-seq expression count matrix \n")
+  cat("  prelnc        Candidate lncRNA discovery (raw FASTQ-first, technology-aware)\n")
+  cat("  count         lncRNA-aware quantification (raw FASTQ-first interface)\n")
   cat("  dataProcess   ScRNA-seq expression count preprocess and annotation \n")
   cat("  function      DownStream analysis to explore lncRNA function \n\n")
   

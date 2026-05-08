@@ -126,6 +126,70 @@ The benchmark summarizes:
 This module is intended to assess stability and sensitivity, not to prove that one normalization strategy is universally superior.  
 `separate_lognormalize` remains available, but users are encouraged to run this benchmark and report strategy-dependent uncertainty where needed.
 
+### Raw FASTQ-first technology-aware workflow
+scLncR starts from **raw sequencing FASTQ** and performs technology-aware lncRNA analysis.
+
+High-level flow:
+
+Raw FASTQ  
+→ technology-aware input parsing  
+→ discovery alignment  
+→ transcript assembly  
+→ candidate lncRNA filtering  
+→ augmented reference construction  
+→ technology-aware quantification  
+→ mRNA + lncRNA count matrix  
+→ downstream scLncR analysis
+
+Key design principles:
+- prelnc uses raw FASTQ as the user-facing input;
+- BAM files are internal intermediate files for transcript evidence;
+- count stage reuses raw FASTQ together with augmented reference for lncRNA-aware quantification.
+
+Technology-aware prelnc notes:
+- 10x (primary supported plant scRNA workflow): `I1` sample index, `R1` barcode/UMI, `R2` cDNA;
+- 10x prelnc discovery uses **R2** for candidate transcript evidence; `R1/I1` are retained for traceability;
+- standard 10x 3'/5' data do not provide uniform full-length transcript coverage, so predictions should be interpreted as **candidate transcript evidence** and cross-validated when possible;
+- Smart-seq2 supports paired-end and single-end discovery alignment;
+- Drop-seq interface is provided as experimental/planned for full UMI-aware quantification integration.
+
+Default prelnc output layout (raw FASTQ-first):
+
+```text
+output_path/
+├── manifest/
+│   ├── prelnc_raw_fastq_manifest.tsv
+│   ├── prelnc_input_validation_report.md
+│   └── samples_info.copy.tsv
+├── logs/
+│   ├── prelnc_run.log
+│   ├── commands.log
+│   └── per_sample_status.tsv
+├── index/hisat2/
+├── alignment/sam/
+├── alignment/sorted_bam/
+├── assembly/stringtie/per_sample_gtf/
+├── assembly/stringtie/all.merged.gtf
+├── gffcompare/
+├── cpc2/
+├── reference/
+│   └── combined_mRNA_lncRNA.gtf
+├── final_lnc.gtf
+├── final.lncRNA.fa
+└── prelnc_run_report.md
+```
+
+prelnc→count bridge:
+- `final_lnc.gtf` is the predicted candidate lncRNA annotation;
+- `reference/combined_mRNA_lncRNA.gtf` is the augmented annotation for count;
+- 10x quantification uses raw FASTQ + augmented reference via Cell Ranger.
+
+Run prelnc:
+
+```shell
+scLncR prelnc -c R/confings/config_LncPre.yaml
+```
+
 ### Command-line usage:
 ***scLncR Main Program***
 ```shell
@@ -134,8 +198,8 @@ scLncR v0.1.0 - Single-cell lncRNA Discovery Pipeline
 Usage: scLncR <command> [options]
 
 Available commands:
-  prelnc        Predict and annotate lncRNAs from single-nucleus RNA-seq data 
-  count         Get scRNA-seq expression count matrix 
+  prelnc        Candidate lncRNA discovery (raw FASTQ-first, technology-aware)
+  count         lncRNA-aware quantification (raw FASTQ-first interface)
   dataProcess   ScRNA-seq expression count preprocess and annotation 
   function      DownStream analysis to explore lncRNA function 
   shiny         Launch Shiny GUI

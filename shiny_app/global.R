@@ -26,6 +26,11 @@ required_packages <- c("shiny", "shinydashboard", "shinyjs", "yaml",
                        "shinyWidgets", "shinyFiles", "DT", "fs")
 ensure_packages(required_packages)
 
+`%||%` <- function(x, y) {
+  if (is.null(x) || length(x) == 0) return(y)
+  x
+}
+
 # 获取scLncR安装信息
 get_scLncR_info <- function() {
   scLncR_path <- Sys.which("scLncR")
@@ -69,17 +74,27 @@ validate_prelnc_config <- function(config) {
   errors <- c()
   warnings <- c()
   
+  input_type <- tolower(config$input_type %||% "fastq")
+
   # 检查必要的参数
-  required_fields <- c("samples_dirs", "genome_file", "gtf_file")
+  required_fields <- c("input_type", "samples_dirs", "genome_file", "gtf_file", "output_path", "lncrna_name", "sequencing_platform")
   missing_fields <- setdiff(required_fields, names(config))
   if (length(missing_fields) > 0) {
     errors <- c(errors, paste("Missing required fields:", 
                              paste(missing_fields, collapse = ", ")))
   }
   
-  # 检查文件/目录是否存在
-  if (!dir.exists(config$samples_dirs)) {
-    warnings <- c(warnings, "Samples directory does not exist")
+  if (!input_type %in% c("fastq")) {
+    errors <- c(errors, "input_type must be fastq in current prelnc design")
+  }
+  if (!tolower(config$sequencing_platform %||% "") %in% c("10x", "smartseq2", "dropseq", "generic")) {
+    errors <- c(errors, "sequencing_platform must be one of: 10x, smartseq2, dropseq, generic")
+  }
+
+  if (is.null(config$samples_dirs) || !nzchar(config$samples_dirs)) {
+    errors <- c(errors, "samples_dirs is required")
+  } else if (!dir.exists(config$samples_dirs)) {
+    warnings <- c(warnings, "samples_dirs does not exist")
   }
   
   if (!file.exists(config$genome_file)) {
@@ -102,19 +117,28 @@ validate_count_config <- function(config) {
   errors <- c()
   warnings <- c()
   
-  required_fields <- c("samples_dir", "genome", "gtf", "lnc_gtf")
+  required_fields <- c("sequencing_platform", "count_engine", "samples_dirs", "genome_file", "known_gtf", "lnc_gtf", "output_path")
   missing_fields <- setdiff(required_fields, names(config))
   if (length(missing_fields) > 0) {
     errors <- c(errors, paste("Missing required fields:", 
                              paste(missing_fields, collapse = ", ")))
   }
   
-  if (!dir.exists(config$samples_dir)) {
+  if (!dir.exists(config$samples_dirs)) {
     warnings <- c(warnings, "Samples directory does not exist")
   }
   
   if (!file.exists(config$lnc_gtf)) {
     warnings <- c(warnings, "lncRNA GTF file does not exist (may not be generated yet)")
+  }
+  if (!is.null(config$combined_gtf) && nzchar(config$combined_gtf) && !file.exists(config$combined_gtf)) {
+    warnings <- c(warnings, "combined_gtf does not exist (will be rebuilt from known_gtf + lnc_gtf)")
+  }
+  if (!tolower(config$sequencing_platform %||% "") %in% c("10x", "smartseq2", "dropseq", "generic")) {
+    errors <- c(errors, "sequencing_platform must be one of: 10x, smartseq2, dropseq, generic")
+  }
+  if (!tolower(config$count_engine %||% "") %in% c("cellranger", "featurecounts", "starsolo")) {
+    errors <- c(errors, "count_engine must be one of: cellranger, featurecounts, starsolo")
   }
   
   return(list(errors = errors, warnings = warnings))
@@ -218,21 +242,31 @@ generate_config_filename <- function(module, prefix = "config") {
 load_example_config <- function(module) {
   examples <- list(
     prelnc = list(
-      samples_dirs = "/path/to/your/samples",
+      input_type = "fastq",
+      sequencing_platform = "10x",
+      samples_dirs = "/path/to/your/fastq_dir",
+      samples_info = "/path/to/samples_info.txt",
+      read_layout = "auto",
       project_name = "example_project",
       output_path = "/path/to/output",
       genome_file = "/path/to/genome.fa",
       gtf_file = "/path/to/annotation.gtf",
       lncrna_name = "exampleLnc",
-      threads = 4
+      aligner_for_discovery = "hisat2",
+      assembler = "stringtie",
+      threads = 4,
+      dry_run = TRUE
     ),
     count = list(
-      samples_dir = "/path/to/your/samples",
+      sequencing_platform = "10x",
+      count_engine = "cellranger",
+      samples_dirs = "/path/to/your/samples",
       project_name = "example_project",
       output_path = "/path/to/output/count",
-      genome = "/path/to/genome.fa",
-      gtf = "/path/to/annotation.gtf",
+      genome_file = "/path/to/genome.fa",
+      known_gtf = "/path/to/annotation.gtf",
       lnc_gtf = "/path/to/lnc_annotation.gtf",
+      combined_gtf = "/path/to/combined_mRNA_lncRNA.gtf",
       threads = 4
     )
     # 其他模块的示例配置...

@@ -7,14 +7,14 @@ scLncR is a comprehensive pipeline for single-cell long non-coding RNA analysis.
 ## Modules
 
 ### 1. LncRNA Prediction
-- Predicts lncRNAs from single-cell/single-nucleus RNA-seq data
-- Requires: Sample directories, reference genome, annotation GTF
-- Outputs: Predicted lncRNA GTF file
+- Raw FASTQ-first candidate lncRNA discovery (technology-aware)
+- 10x/Smart-seq2/Drop-seq/generic interfaces with explicit input-read-role parsing
+- Outputs: `final_lnc.gtf`, `final.lncRNA.fa`, `reference/combined_mRNA_lncRNA.gtf`, manifests, logs, and run report
 
 ### 2. Expression Counting
-- Generates expression count matrices
-- Uses CellRanger for alignment and counting
-- Requires: lncRNA GTF from previous step
+- lncRNA-aware quantification from raw FASTQ + augmented reference
+- Primary supported path: 10x + Cell Ranger
+- Experimental interfaces: Smart-seq2 and Drop-seq
 
 ### 3. Data Processing
 - Quality control, normalization, and preprocessing
@@ -39,7 +39,7 @@ Note: enrichment results indicate relative expression patterns (snRNA-enriched o
 ## File Requirements
 
 ### Input Files
-- FASTQ/BAM files for each sample
+- Raw FASTQ directory and optional sample metadata table
 - Reference genome (FASTA format)
 - Gene annotation (GTF format)
 

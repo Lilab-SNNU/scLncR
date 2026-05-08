@@ -1,59 +1,53 @@
 # =============================================================================
-# scLncR - Single-cell lncRNA Analysis Pipeline: prelnc Module Configuration
-# Purpose: Define input data paths, reference genome information, output settings, and runtime parameters.
-# Note:
-#   - Use absolute paths for all file/directory entries.
-#   - If delimiters are needed in identifiers, use only hyphens ("-").
-#     Avoid underscores ("_") or other special characters, as Seurat objects automatically
-#     replace them with hyphens, which may cause mismatches during downstream annotation.
+# scLncR - prelnc configuration (raw FASTQ-first, technology-aware)
 # =============================================================================
 
 # -----------------------------
-# 1. Input Data Settings
+# Core inputs and outputs
 # -----------------------------
-
-# Directory containing raw sample data (e.g., BAM/FASTQ files).
-# Each subdirectory under this path should correspond to one sample.
-samples_dirs: "/home/data/scLncR/data/paper_test/"
-
-# -----------------------------
-# 2. Project and Output Settings
-# -----------------------------
-
-# Project name (used for naming log files, intermediate results, and output directories).
+samples_dirs: "/home/data/scLncR/data/paper_test"
+samples_info: "/home/data/scLncR/data/paper_test/samples_info.txt"
 project_name: "scLncR"
-
-# Main output directory where all results from the prelnc module will be saved.
-output_path: "/home/data/scLncR/paper/paper_case"
-
-# -----------------------------
-# 3. Reference Genome and Annotation Files
-# -----------------------------
-
-# Path to the reference genome in FASTA format (used for sequence extraction, alignment, etc.).
+output_path: "/home/data/scLncR/paper/paper_case/step1_prelnc"
 genome_file: "/home/data/scLncR/genome/TAIR10.fa"
-
-# Path to the gene annotation file in GTF format.
-# Recommended: Use authoritative sources such as Araport, Ensembl, or RefSeq.
 gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
-
-# -----------------------------
-# 4. lncRNA Naming Convention
-# -----------------------------
-
-# Custom prefix for newly predicted lncRNA identifiers (e.g., scLncR-AthLnc-0001).
-#  !!!Important:
-#   - Only use letters, digits, and hyphens ("-").
-#   - DO NOT use underscores ("_"), spaces, or other special characters.
-#   - Reason: Seurat internally normalizes non-hyphen delimiters to "-", which can lead to
-#     annotation mismatches or failed gene matching in downstream analysis.
 lncrna_name: "AthLnc"
-
-# -----------------------------
-# 5. Computational Resources
-# -----------------------------
-
-# Number of parallel threads to use for compute-intensive steps
-# (e.g., alignment, transcript assembly, feature counting).
-# Recommendation: Set to the number of physical CPU cores or slightly lower to avoid system overload.
 threads: 24
+
+# -----------------------------
+# Raw FASTQ-first mode
+# -----------------------------
+input_type: "fastq"               # main interface for this module
+sequencing_platform: "10x"        # 10x | smartseq2 | dropseq | generic
+read_layout: "auto"               # auto | single | paired
+
+fastq_sample_regex: "^(.*?)_S\\d+_L\\d+_([IR][12])_\\d+\\.fastq\\.gz$"
+r1_pattern: "_R1_"
+r2_pattern: "_R2_"
+i1_pattern: "_I1_"
+
+# -----------------------------
+# Discovery alignment and assembly
+# -----------------------------
+aligner_for_discovery: "hisat2"
+assembler: "stringtie"
+strandness: "RF"                  # RF | FR | unstranded
+min_transcript_length: 200
+gffcompare_classes: ["i", "u", "x", "o"]
+min_mapping_quality: 30
+rebuild_hisat2_index: false
+hisat2_index_prefix: ""
+
+# -----------------------------
+# Runtime controls
+# -----------------------------
+keep_intermediate: true
+dry_run: true
+sample_limit: 0                   # 0 means no limit
+include_samples: []
+
+# -----------------------------
+# Legacy compatibility fields (ignored in raw FASTQ-first mode)
+# -----------------------------
+prelnc_mode: "fastq_helper"
+bam_manifest: ""

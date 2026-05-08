@@ -127,13 +127,29 @@ ui <- dashboardPage(
             status = "info",
             title = "1. Input Data Settings",
             solidHeader = TRUE,
+            selectInput("prelnc_mode", "prelnc Mode",
+                        choices = c("Raw FASTQ-first (technology-aware)" = "fastq_helper"),
+                        selected = "fastq_helper"),
+            selectInput("prelnc_input_type", "Input Type",
+                        choices = c("fastq"),
+                        selected = "fastq"),
+            hr(),
             shinyDirButton("prelnc_samples_dir", "Select Samples Directory", 
                          "Please select a directory"),
             br(), br(),
             textInput("prelnc_samples_dirs", "Samples Directory",
                      value = "/home/data/scLncR/data/paper_test/",
-                     placeholder = "Directory containing raw sample data (e.g., BAM/FASTQ files)"),
-            helpText("Each subdirectory under this path should correspond to one sample."),
+                     placeholder = "Raw FASTQ directory"),
+            helpText("prelnc scans raw FASTQ and performs technology-aware discovery alignment."),
+            textInput("prelnc_samples_info", "Samples Info (optional)",
+                      value = "/home/data/scLncR/data/paper_test/samples_info.txt",
+                      placeholder = "optional sample metadata table"),
+            selectInput("prelnc_platform", "Sequencing Platform",
+                        choices = c("10x", "smartseq2", "dropseq", "generic"),
+                        selected = "10x"),
+            selectInput("prelnc_read_layout", "Read Layout",
+                        choices = c("auto", "single", "paired"),
+                        selected = "auto"),
             hr(),
             h5("File Browser"),
             verbatimTextOutput("prelnc_dir_contents")
@@ -193,8 +209,18 @@ ui <- dashboardPage(
             helpText(HTML("<strong>Important:</strong> Only use letters, digits, and hyphens ('-').<br>
                          DO NOT use underscores ('_'), spaces, or other special characters.")),
             hr(),
+            selectInput("prelnc_strandness", "Strandness",
+                        choices = c("RF", "FR", "unstranded"),
+                        selected = "RF"),
+            numericInput("prelnc_min_transcript_length", "Minimum Transcript Length",
+                        value = 200, min = 1, max = 100000, step = 1),
+            numericInput("prelnc_min_mapping_quality", "Minimum Mapping Quality",
+                        value = 30, min = 0, max = 60, step = 1),
             numericInput("prelnc_threads", "Number of Threads",
                         value = 24, min = 1, max = 128, step = 1),
+            checkboxInput("prelnc_keep_intermediate", "Keep Intermediate Files", value = TRUE),
+            checkboxInput("prelnc_dry_run", "Dry Run (preview only)", value = TRUE),
+            numericInput("prelnc_sample_limit", "Sample Limit (0 = all)", value = 0, min = 0, step = 1),
             helpText("Recommendation: Set to the number of physical CPU cores or slightly lower."),
             hr(),
             h5("Validation Status"),
@@ -222,6 +248,12 @@ ui <- dashboardPage(
             status = "info",
             title = "1. Input Data Settings",
             solidHeader = TRUE,
+            selectInput("count_platform", "Sequencing Platform",
+                        choices = c("10x", "smartseq2", "dropseq", "generic"),
+                        selected = "10x"),
+            selectInput("count_engine", "Count Engine",
+                        choices = c("cellranger", "featurecounts", "starsolo"),
+                        selected = "cellranger"),
             shinyDirButton("count_samples_dir", "Select Samples Directory", 
                          "Please select a directory"),
             br(), br(),
@@ -229,6 +261,9 @@ ui <- dashboardPage(
                      value = "/home/data/scLncR/data/paper_test/",
                      placeholder = "Directory containing raw sample data"),
             helpText("Each subdirectory under this path should correspond to one sample."),
+            textInput("count_samples_info", "Samples Info (optional)",
+                     value = "/home/data/scLncR/data/paper_test/samples_info.txt",
+                     placeholder = "optional sample metadata table"),
             hr(),
             h5("Detected Samples"),
             uiOutput("count_detected_samples")
@@ -266,23 +301,29 @@ ui <- dashboardPage(
                            "Please select a GTF file", multiple = FALSE,
                            filetypes = c("gtf")),
             br(), br(),
-            textInput("count_gtf", "GTF Annotation File",
+            textInput("count_gtf", "Known Gene GTF File",
                      value = "/home/data/scLncR/genome/Araport11_current.gtf")
           ),
           
           box(
             width = 6,
             status = "danger",
-            title = "4. lncRNA Annotation and Computational Resources",
+            title = "4. lncRNA and Augmented Reference",
             solidHeader = TRUE,
             shinyFilesButton("count_lnc_gtf", "Select lncRNA GTF File", 
                            "Please select a GTF file", multiple = FALSE,
                            filetypes = c("gtf")),
             br(), br(),
             textInput("count_lnc_gtf", "lncRNA GTF File",
-                     value = "/home/data/scLncR/paper/paper_case/lnc_gtf",
+                     value = "/home/data/scLncR/paper/paper_case/step1_prelnc/final_lnc.gtf",
                      placeholder = "Result of prelnc step"),
-            helpText("Path to the lncRNA annotation file in GTF format."),
+            shinyFilesButton("count_combined_gtf", "Select Combined GTF (optional)", 
+                           "Please select a GTF file", multiple = FALSE,
+                           filetypes = c("gtf")),
+            br(), br(),
+            textInput("count_combined_gtf", "Combined mRNA+lncRNA GTF (optional)",
+                     value = "/home/data/scLncR/paper/paper_case/step1_prelnc/reference/combined_mRNA_lncRNA.gtf",
+                     placeholder = "If empty/missing, will be rebuilt from known_gtf + lnc_gtf"),
             hr(),
             numericInput("count_threads", "Number of Threads",
                         value = 24, min = 1, max = 128, step = 1),
@@ -845,11 +886,20 @@ server <- function(input, output, session) {
   shinyDirChoose(input, "prelnc_output_path", roots = volumes, session = session)
   shinyFileChoose(input, "prelnc_genome_file", roots = volumes, session = session)
   shinyFileChoose(input, "prelnc_gtf_file", roots = volumes, session = session)
+  shinyFileChoose(input, "count_combined_gtf", roots = volumes, session = session)
   
   observeEvent(input$prelnc_samples_dir, {
     if (!is.integer(input$prelnc_samples_dir)) {
       path <- parseDirPath(volumes, input$prelnc_samples_dir)
       updateTextInput(session, "prelnc_samples_dirs", value = path)
+    }
+  })
+  observeEvent(input$count_combined_gtf, {
+    if (!is.null(input$count_combined_gtf) && !is.integer(input$count_combined_gtf)) {
+      path <- parseFilePaths(volumes, input$count_combined_gtf)$datapath
+      if (length(path) > 0) {
+        updateTextInput(session, "count_combined_gtf", value = path[1])
+      }
     }
   })
   
@@ -858,13 +908,31 @@ server <- function(input, output, session) {
   # 生成配置文件函数
   generate_prelnc_config <- function() {
     config <- list(
+      prelnc_mode = input$prelnc_mode,
+      input_type = input$prelnc_input_type,
+      sequencing_platform = input$prelnc_platform,
       samples_dirs = input$prelnc_samples_dirs,
+      samples_info = input$prelnc_samples_info,
+      read_layout = input$prelnc_read_layout,
+      aligner_for_discovery = "hisat2",
+      assembler = "stringtie",
       project_name = input$prelnc_project_name,
       output_path = input$prelnc_output_path,
       genome_file = input$prelnc_genome_file,
       gtf_file = input$prelnc_gtf_file,
       lncrna_name = input$prelnc_lncrna_name,
-      threads = as.integer(input$prelnc_threads)
+      threads = as.integer(input$prelnc_threads),
+      strandness = input$prelnc_strandness,
+      min_transcript_length = as.integer(input$prelnc_min_transcript_length),
+      gffcompare_classes = list("i", "u", "x", "o"),
+      min_mapping_quality = as.integer(input$prelnc_min_mapping_quality),
+      hisat2_index_prefix = "",
+      rebuild_hisat2_index = FALSE,
+      keep_intermediate = isTRUE(input$prelnc_keep_intermediate),
+      dry_run = isTRUE(input$prelnc_dry_run),
+      sample_limit = as.integer(input$prelnc_sample_limit),
+      include_samples = list(),
+      bam_manifest = ""
     )
     
     # 添加注释
@@ -878,13 +946,20 @@ server <- function(input, output, session) {
   
   generate_count_config <- function() {
     config <- list(
-      samples_dir = input$count_samples_dir,
+      sequencing_platform = input$count_platform,
+      count_engine = input$count_engine,
+      samples_dirs = input$count_samples_dir,
+      samples_info = input$count_samples_info,
       project_name = input$count_project_name,
       output_path = input$count_output_path,
-      genome = input$count_genome,
-      gtf = input$count_gtf,
+      genome_file = input$count_genome,
+      known_gtf = input$count_gtf,
       lnc_gtf = input$count_lnc_gtf,
-      threads = as.integer(input$count_threads)
+      combined_gtf = input$count_combined_gtf,
+      threads = as.integer(input$count_threads),
+      dry_run = TRUE,
+      sample_limit = 0,
+      include_samples = list()
     )
     
     return(config)
@@ -1124,7 +1199,10 @@ server <- function(input, output, session) {
     # 验证prelnc模块
     if (input$run_prelnc) {
       if (!dir.exists(input$prelnc_samples_dirs)) {
-        errors <- c(errors, "prelnc: Samples directory does not exist")
+        errors <- c(errors, "prelnc: samples_dirs does not exist")
+      }
+      if (!input$prelnc_platform %in% c("10x", "smartseq2", "dropseq", "generic")) {
+        errors <- c(errors, "prelnc: invalid sequencing_platform")
       }
       if (!file.exists(input$prelnc_genome_file)) {
         errors <- c(errors, "prelnc: Genome file does not exist")
