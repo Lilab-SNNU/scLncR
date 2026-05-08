@@ -1,0 +1,20 @@
+# =============================================================================
+# scLncR - Normalization Benchmark Configuration
+# Purpose: Compare normalization strategies and assess lncRNA signal stability.
+# =============================================================================
+
+input_seurat: "path/to/seurat_object.rds"
+output_dir: "normalization_benchmark_results"
+lnc_name: "AthLnc"
+
+group_by: "cell_type"
+condition_col: "Group"
+cluster_col: "seurat_clusters"
+
+strategies: ["joint_lognormalize", "separate_lognormalize", "sctransform", "scran"]
+marker_test: "wilcox"
+logfc_threshold: 0.25
+min_pct: 0.1
+padj_threshold: 0.05
+top_n_markers: 50
+random_seed: 1234

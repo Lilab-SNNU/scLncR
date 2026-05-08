@@ -92,6 +92,40 @@ scLncR supports two modes of usage: command-line operation and a Shiny GUI inter
 For the `function` module, the `location` submodule should be interpreted as **snRNA/scRNA expression enrichment analysis** (snRNA-enriched, scRNA-enriched, or balanced/non-differential expression).  
 These results come from differential expression between snRNA-seq and scRNA-seq groups and should not be used alone as proof of true nuclear/cytoplasmic localization without independent validation.
 
+### Normalization benchmarking and stability analysis
+To evaluate whether separate normalization changes lncRNA marker detection and downstream signal stability, scLncR provides an independent benchmarking script:
+
+```shell
+Rscript scripts/run_normalization_benchmark.R \
+  -c R/confings/config_normalization_benchmark.yaml
+```
+
+Configure input/output and strategies in:
+
+```text
+R/confings/config_normalization_benchmark.yaml
+```
+
+Main output directory:
+
+```text
+normalization_benchmark_results/
+├── normalized_objects/
+├── markers/
+├── stability/
+├── figures/
+└── normalization_benchmark_report.md
+```
+
+The benchmark summarizes:
+- lncRNA marker counts and proportions across normalization strategies;
+- marker overlap and rank consistency (Jaccard and rank correlation);
+- lncRNA and mRNA normalized signal distribution summaries;
+- lightweight downstream stability proxies (lncRNA HVG overlap and group-level average-expression correlation).
+
+This module is intended to assess stability and sensitivity, not to prove that one normalization strategy is universally superior.  
+`separate_lognormalize` remains available, but users are encouraged to run this benchmark and report strategy-dependent uncertainty where needed.
+
 ### Command-line usage:
 ***scLncR Main Program***
 ```shell
