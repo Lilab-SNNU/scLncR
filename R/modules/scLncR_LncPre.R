@@ -444,7 +444,7 @@ run_stringtie_for_sample <- function(sample_row, cfg, ctx) {
     stringtie_strand_args(cfg$strandness),
     "-G", cfg$gtf_file,
     "-o", out_gtf,
-    "-l", paste0(sid, "_lnc"),
+    "-l", paste0(cfg$lncrna_name, "_", sid),
     sample_row$bam_path
   )
   run_command(ctx, paste0("stringtie_", sid), "stringtie", args, check = TRUE)
@@ -479,6 +479,58 @@ subset_gtf_by_transcript_ids <- function(gtf_in, transcript_ids, gtf_out) {
     keep[i] <- tx %in% transcript_ids
   }
   writeLines(lines[keep], gtf_out)
+}
+
+extract_gtf_attr <- function(line, attr_name) {
+  pattern <- sprintf('.*%s "([^"]+)".*', attr_name)
+  if (!grepl(sprintf('%s "', attr_name), line, fixed = TRUE)) return(NA_character_)
+  sub(pattern, "\\1", line)
+}
+
+set_gtf_attr <- function(line, attr_name, value) {
+  if (grepl(sprintf('%s "', attr_name), line, fixed = TRUE)) {
+    sub(sprintf('%s "[^"]+"', attr_name), sprintf('%s "%s"', attr_name, value), line)
+  } else {
+    sub(";[[:space:]]*$", sprintf('; %s "%s";', attr_name, value), line)
+  }
+}
+
+rename_gtf_transcripts <- function(gtf_in, id_map, gtf_out) {
+  lines <- readLines(gtf_in, warn = FALSE)
+  if (length(lines) == 0) {
+    writeLines(character(0), gtf_out)
+    return(invisible(FALSE))
+  }
+
+  tx_lookup <- setNames(seq_len(nrow(id_map)), id_map$old_transcript_id)
+  out <- character(0)
+  for (ln in lines) {
+    if (startsWith(ln, "#") || !grepl("transcript_id \"", ln, fixed = TRUE)) next
+    old_tx <- extract_gtf_attr(ln, "transcript_id")
+    if (is.na(old_tx) || !nzchar(old_tx)) next
+    idx <- unname(tx_lookup[old_tx])
+    if (length(idx) == 0 || is.na(idx)) next
+    ln <- set_gtf_attr(ln, "gene_id", id_map$new_gene_id[idx])
+    ln <- set_gtf_attr(ln, "transcript_id", id_map$new_transcript_id[idx])
+    out <- c(out, ln)
+  }
+  writeLines(out, gtf_out)
+  invisible(length(out) > 0)
+}
+
+select_cpc2_columns <- function(cpc) {
+  col_lower <- tolower(colnames(cpc))
+  id_idx <- which(col_lower %in% c("#id", "id", "transcript_id", "sequence_name", "seq_id"))
+  if (length(id_idx) == 0) id_idx <- 1L
+
+  label_idx <- which(col_lower %in% c("label", "coding_label", "prediction", "class", "coding_status"))
+  if (length(label_idx) == 0) {
+    label_idx <- which(grepl("label|prediction|class|status", col_lower))
+  }
+  if (length(label_idx) == 0) stop("Cannot identify CPC2 label column. Columns: ", paste(colnames(cpc), collapse = ", "))
+
+  prob_idx <- which(col_lower %in% c("coding_probability", "coding_prob", "probability"))
+  list(id = id_idx[1], label = label_idx[1], probability = if (length(prob_idx) == 0) NA_integer_ else prob_idx[1])
 }
 
 #' Filter lncRNA candidates by gffcompare class and transcript length
@@ -576,26 +628,77 @@ filter_coding_potential_with_CPC2 <- function(candidate_gtf, cfg, ctx) {
 
   cpc_txt <- paste0(cpc_prefix, ".txt")
   if (!file.exists(cpc_txt)) stop("CPC2 output not found: ", cpc_txt)
-  cpc <- read.delim(cpc_txt, sep = "\t", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE)
+  cpc <- read.delim(cpc_txt, sep = "\t", header = TRUE, stringsAsFactors = FALSE, check.names = FALSE, comment.char = "")
   if (nrow(cpc) == 0) stop("CPC2 output is empty.")
 
-  col_lower <- tolower(colnames(cpc))
-  id_idx <- which(col_lower %in% c("#id", "id", "transcript_id", "sequence_name", "seq_id"))
-  if (length(id_idx) == 0) id_idx <- 1L
-  label_idx <- which(grepl("label|coding", col_lower))
-  if (length(label_idx) == 0) stop("Cannot identify coding label column in CPC2 output.")
+  cpc_cols <- select_cpc2_columns(cpc)
+  id_col <- colnames(cpc)[cpc_cols$id]
+  label_col <- colnames(cpc)[cpc_cols$label]
+  prob_col <- if (is.na(cpc_cols$probability)) NA_character_ else colnames(cpc)[cpc_cols$probability]
 
-  tx_id <- as.character(cpc[[id_idx[1]]])
-  pred <- tolower(as.character(cpc[[label_idx[1]]]))
+  tx_id <- as.character(cpc[[cpc_cols$id]])
+  pred <- tolower(trimws(as.character(cpc[[cpc_cols$label]])))
   noncoding_ids <- unique(tx_id[pred %in% c("noncoding", "non-coding", "non coding") & nzchar(tx_id)])
-  if (length(noncoding_ids) == 0) stop("No noncoding transcripts after CPC2 filtering.")
+  label_counts <- sort(table(pred), decreasing = TRUE)
+
+  cpc_summary <- data.frame(
+    metric = c(
+      "total_transcripts",
+      "id_column",
+      "label_column",
+      "coding_probability_column",
+      "noncoding_count"
+    ),
+    value = c(nrow(cpc), id_col, label_col, prob_col %||% "", length(noncoding_ids)),
+    stringsAsFactors = FALSE
+  )
+  label_summary <- data.frame(
+    metric = paste0("label_count:", names(label_counts)),
+    value = as.integer(label_counts),
+    stringsAsFactors = FALSE
+  )
+  cpc_summary_file <- file.path(ctx$dirs$cpc2, "CPC2_filter_summary.tsv")
+  write.table(rbind(cpc_summary, label_summary), cpc_summary_file, sep = "\t", row.names = FALSE, quote = FALSE)
+
+  if (length(noncoding_ids) == 0) {
+    stop(
+      "No noncoding transcripts after CPC2 filtering. ",
+      "Parsed label column: ", label_col, ". ",
+      "Observed labels: ", paste(sprintf("%s=%s", names(label_counts), as.integer(label_counts)), collapse = ", ")
+    )
+  }
 
   noncoding_id_file <- file.path(ctx$dirs$cpc2, "noncoding_transcript_ids.txt")
   writeLines(noncoding_ids, noncoding_id_file)
-  subset_gtf_by_transcript_ids(candidate_gtf, noncoding_ids, ctx$files$final_gtf)
+
+  id_map <- data.frame(
+    old_transcript_id = noncoding_ids,
+    new_gene_id = sprintf("%s%06d", cfg$lncrna_name, seq_along(noncoding_ids)),
+    new_transcript_id = sprintf("%s%06d.1", cfg$lncrna_name, seq_along(noncoding_ids)),
+    stringsAsFactors = FALSE
+  )
+  if (!is.na(cpc_cols$probability)) {
+    prob_lookup <- setNames(as.character(cpc[[cpc_cols$probability]]), tx_id)
+    id_map$coding_probability <- unname(prob_lookup[id_map$old_transcript_id])
+  }
+  pred_lookup <- setNames(as.character(cpc[[cpc_cols$label]]), tx_id)
+  id_map$cpc2_label <- unname(pred_lookup[id_map$old_transcript_id])
+
+  id_map_file <- file.path(ctx$dirs$cpc2, "final_lnc_id_mapping.tsv")
+  write.table(id_map, id_map_file, sep = "\t", row.names = FALSE, quote = FALSE)
+
+  ok <- rename_gtf_transcripts(candidate_gtf, id_map, ctx$files$final_gtf)
+  if (!isTRUE(ok)) stop("No GTF records were written after CPC2 noncoding ID mapping.")
+
   run_command(ctx, "gffread_final_fasta", "gffread", c(ctx$files$final_gtf, "-g", cfg$genome_file, "-w", ctx$files$final_fa), check = TRUE)
 
-  list(final_gtf = ctx$files$final_gtf, final_fa = ctx$files$final_fa, noncoding_id_file = noncoding_id_file)
+  list(
+    final_gtf = ctx$files$final_gtf,
+    final_fa = ctx$files$final_fa,
+    noncoding_id_file = noncoding_id_file,
+    id_mapping_file = id_map_file,
+    cpc_summary_file = cpc_summary_file
+  )
 }
 
 #' Build augmented known+lncRNA reference GTF
@@ -631,7 +734,7 @@ run_prelnc_core_from_bam <- function(cfg, bam_df, ctx) {
     for (i in seq_len(nrow(bam_df))) {
       sid <- sanitize_sample_id(bam_df$sample_id[i])
       out_gtf <- file.path(ctx$dirs$assembly_per_sample, paste0(sid, ".gtf"))
-      args <- c("-p", as.character(cfg$threads), stringtie_strand_args(cfg$strandness), "-G", cfg$gtf_file, "-o", out_gtf, "-l", paste0(sid, "_lnc"), bam_df$bam_path[i])
+      args <- c("-p", as.character(cfg$threads), stringtie_strand_args(cfg$strandness), "-G", cfg$gtf_file, "-o", out_gtf, "-l", paste0(cfg$lncrna_name, "_", sid), bam_df$bam_path[i])
       run_command(ctx, paste0("stringtie_", sid), "stringtie", args, check = FALSE)
       add_status(ctx, "stringtie", bam_df$sample_id[i], "DRY_RUN", out_gtf)
     }
@@ -711,6 +814,12 @@ write_prelnc_run_report <- function(cfg, manifest, statuses, ctx, outputs) {
   lines <- c(lines, sprintf("- final_lnc.gtf: `%s`", outputs$final_gtf))
   lines <- c(lines, sprintf("- final.lncRNA.fa: `%s`", outputs$final_fa))
   lines <- c(lines, sprintf("- reference/combined_mRNA_lncRNA.gtf: `%s`", outputs$combined_gtf))
+  if (!is.null(outputs$id_mapping_file)) {
+    lines <- c(lines, sprintf("- final lncRNA ID mapping: `%s`", outputs$id_mapping_file))
+  }
+  if (!is.null(outputs$cpc_summary_file)) {
+    lines <- c(lines, sprintf("- CPC2 filter summary: `%s`", outputs$cpc_summary_file))
+  }
   lines <- c(lines, sprintf("- raw FASTQ manifest: `%s`", ctx$files$raw_fastq_manifest))
   lines <- c(lines, sprintf("- commands log: `%s`", ctx$files$commands_log))
   lines <- c(lines, sprintf("- run log: `%s`", ctx$files$run_log), "")
