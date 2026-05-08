@@ -80,6 +80,7 @@ If you do not have conda, you can also manually install the required R packages 
 
 **Bioinformatics Software**
 - hisat2,  version  2.2.1(https://daehwankimlab.github.io/hisat2/)
+- samtools, version 1.20(https://www.htslib.org/)
 - stringtie,  version  2.2.3(https://ccb.jhu.edu/software/stringtie/)
 - gffcompare, version 0.12.6(https://ccb.jhu.edu/software/stringtie/gffcompare.shtml)
 - gffread, version 0.9.12(https://ccb.jhu.edu/software/stringtie/gff.shtml#gffread)

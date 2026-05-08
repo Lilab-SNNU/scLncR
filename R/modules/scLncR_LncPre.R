@@ -496,11 +496,51 @@ filter_lncRNA_candidates <- function(merged_gtf, cfg, ctx) {
   prefix <- file.path(ctx$dirs$gffcompare, "gffcmp")
   run_command(ctx, "gffcompare", "gffcompare", c("-r", cfg$gtf_file, "-o", prefix, merged_gtf), check = TRUE)
 
-  tmap_file <- paste0(prefix, ".", basename(merged_gtf), ".tmap")
-  if (!file.exists(tmap_file)) tmap_file <- paste0(prefix, ".all.merged.gtf.tmap")
-  if (!file.exists(tmap_file)) stop("Cannot find gffcompare tmap output.")
+  expected <- c(
+    paste0(prefix, ".", basename(merged_gtf), ".tmap"),
+    paste0(prefix, ".all.merged.gtf.tmap"),
+    paste0(prefix, ".merged.gtf.tmap"),
+    paste0(prefix, ".tmap")
+  )
+  tmap_file <- expected[file.exists(expected)][1]
+  if (is.na(tmap_file) || !nzchar(tmap_file)) {
+    tmap_candidates <- c(
+      list.files(ctx$dirs$gffcompare, pattern = "\\.tmap$", full.names = TRUE),
+      list.files(dirname(merged_gtf), pattern = "^gffcmp\\..*\\.tmap$", full.names = TRUE)
+    )
+    tmap_candidates <- unique(tmap_candidates[file.exists(tmap_candidates)])
+    if (length(tmap_candidates) > 0) {
+      mt <- file.info(tmap_candidates)$mtime
+      tmap_file <- tmap_candidates[which.max(mt)]
+      log_prelnc(ctx, sprintf("Using detected gffcompare tmap file: %s", tmap_file))
+    } else {
+      produced <- unique(c(
+        file.path(ctx$dirs$gffcompare, list.files(ctx$dirs$gffcompare, full.names = FALSE)),
+        file.path(dirname(merged_gtf), list.files(dirname(merged_gtf), pattern = "^gffcmp\\.", full.names = FALSE))
+      ))
+      stop(
+        "Cannot find gffcompare tmap output. Candidate gffcompare files: ",
+        paste(produced, collapse = ", ")
+      )
+    }
+  }
+
+  # Archive detected tmap into gffcompare directory for stable downstream paths.
+  archived_tmap <- file.path(ctx$dirs$gffcompare, basename(tmap_file))
+  if (normalizePath(tmap_file, winslash = "/", mustWork = FALSE) != normalizePath(archived_tmap, winslash = "/", mustWork = FALSE)) {
+    file.copy(tmap_file, archived_tmap, overwrite = TRUE)
+    tmap_file <- archived_tmap
+  }
+
   annotated_gtf <- paste0(prefix, ".annotated.gtf")
-  if (!file.exists(annotated_gtf)) stop("Cannot find gffcompare annotated GTF output.")
+  if (!file.exists(annotated_gtf)) {
+    alt_annot <- file.path(dirname(merged_gtf), "gffcmp.annotated.gtf")
+    if (file.exists(alt_annot)) {
+      file.copy(alt_annot, annotated_gtf, overwrite = TRUE)
+    } else {
+      stop("Cannot find gffcompare annotated GTF output.")
+    }
+  }
 
   tmap <- read.table(tmap_file, sep = "\t", header = FALSE, stringsAsFactors = FALSE, quote = "", comment.char = "")
   if (ncol(tmap) < 10) stop("Unexpected gffcompare tmap format: ", tmap_file)
