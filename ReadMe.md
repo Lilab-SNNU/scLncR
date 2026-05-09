@@ -85,6 +85,7 @@ If you do not have conda, you can also manually install the required R packages 
 - gffcompare, version 0.12.6(https://ccb.jhu.edu/software/stringtie/gffcompare.shtml)
 - gffread, version 0.9.12(https://ccb.jhu.edu/software/stringtie/gff.shtml#gffread)
 - CPC2, version 1.0.1(https://github.com/gao-lab/CPC2_standalone/releases/tag/v1.0.1)
+- Cell Ranger，version 7.0.2(https://github.com/10XGenomics/cellranger/releases)
 ---
 
 ### Usage
@@ -126,6 +127,45 @@ The benchmark summarizes:
 
 This module is intended to assess stability and sensitivity, not to prove that one normalization strategy is universally superior.  
 `separate_lognormalize` remains available, but users are encouraged to run this benchmark and report strategy-dependent uncertainty where needed.
+
+### Raw FASTQ quality control
+Before running candidate lncRNA discovery or lncRNA-aware quantification, users can optionally inspect raw FASTQ quality with FastQC and MultiQC:
+
+```shell
+scLncR qc -c R/confings/config_QC.yaml
+```
+
+The same workflow can be launched through the shell wrapper:
+
+```shell
+bash scripts/run_fastq_qc.sh -c R/confings/config_QC.yaml
+```
+
+This module only reports quality metrics. It does not perform trimming, adapter removal, low-quality read filtering, or any modification of raw FASTQ files. Users should inspect the MultiQC HTML report and decide whether the raw data are suitable for downstream prelnc/count analysis.
+
+Default QC output layout:
+
+```text
+output_dir/
+├── fastqc/
+│   ├── *_fastqc.html
+│   ├── *_fastqc.zip
+│   └── *_fastqc/
+├── multiqc/
+│   ├── multiqc_report.html
+│   └── multiqc_data/
+├── logs/
+│   ├── qc_run.log
+│   ├── commands.log
+│   └── fastq_file_list.txt
+└── qc_summary.md
+```
+
+Main configuration file:
+
+```text
+R/confings/config_QC.yaml
+```
 
 ### Raw FASTQ-first technology-aware workflow
 scLncR starts from **raw sequencing FASTQ** and performs technology-aware lncRNA analysis.
@@ -199,6 +239,7 @@ scLncR v0.1.0 - Single-cell lncRNA Discovery Pipeline
 Usage: scLncR <command> [options]
 
 Available commands:
+  qc            Raw FASTQ quality control (FastQC + MultiQC; no trimming)
   prelnc        Candidate lncRNA discovery (raw FASTQ-first, technology-aware)
   count         lncRNA-aware quantification (raw FASTQ-first interface)
   dataProcess   ScRNA-seq expression count preprocess and annotation 
@@ -218,6 +259,7 @@ Note: Each command has its own --help. For example:
 scLncR allows each subroutine to accept corresponding parameters via YAML configuration files. Users can modify the settings according to the parameter specifications provided in each YAML file and then execute the program sequentially using the following command. Alternatively, they may run specific modules independently based on their needs.
 
 ```shell
+$ scLncR qc -c scLncR/R/confings/config_QC.yaml
 $ scLncR prelnc -c scLncR/R/confings/config_LncPre.yaml
 $ scLncR count -c scLncR/R/confings/config_Count.yaml
 $ scLncR dataProcess -c scLncR/R/confings/config_dataProcess.yaml

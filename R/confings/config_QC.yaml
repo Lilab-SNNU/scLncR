@@ -1,0 +1,28 @@
+# =============================================================================
+# scLncR - raw FASTQ quality control configuration
+# =============================================================================
+
+input_dir: "/home/data/scLncR/data/paper_test"
+output_dir: "/home/data/scLncR/paper/paper_case/step0_qc"
+file_pattern: "*.fastq.gz"
+recursive: false
+
+threads: 8
+
+fastqc:
+  enabled: true
+  extract: true
+  nogroup: false
+  contaminants: ""
+  adapters: ""
+  extra_args: ""
+
+multiqc:
+  enabled: true
+  title: "scLncR raw FASTQ QC report"
+  filename: "multiqc_report.html"
+  extra_args: ""
+
+dry_run: false
+sample_limit: 0
+include_files: []

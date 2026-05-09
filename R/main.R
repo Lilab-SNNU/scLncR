@@ -20,6 +20,7 @@ if (length(user_args) == 0 ||
   cat("Usage: scLncR <command> [options]\n\n")
   
   cat("Available commands:\n")
+  cat("  qc            Raw FASTQ quality control (FastQC + MultiQC; no trimming)\n")
   cat("  prelnc        Candidate lncRNA discovery (raw FASTQ-first, technology-aware)\n")
   cat("  count         lncRNA-aware quantification (raw FASTQ-first interface)\n")
   cat("  dataProcess   ScRNA-seq expression count preprocess and annotation \n")
@@ -45,7 +46,11 @@ cmd <- user_args[1]
 sub_args <- user_args[-1]
 # Source modules only when needed (or source all if few)
 
-if (cmd == "prelnc") {
+if (cmd == "qc") {
+  source(file.path(script_dir, "R", "utils", "config_loader_qc.R"))
+  source(file.path(script_dir, "R", "modules", "scLncR_QC.R"))
+  run_qc(sub_args, script_dir)
+} else if (cmd == "prelnc") {
   source(file.path(script_dir, "R", "utils", "config_loader_prelnc.R"))
   source(file.path(script_dir, "R", "modules", "scLncR_LncPre.R"))
   run_prelnc(sub_args, script_dir)
