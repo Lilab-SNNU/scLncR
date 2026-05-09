@@ -95,8 +95,9 @@ run_qc_command <- function(ctx, step, command, args) {
     return(invisible(ctx))
   }
 
+  exec_args <- shQuote(args)
   out <- tryCatch(
-    system2(command, args = args, stdout = TRUE, stderr = TRUE),
+    system2(command, args = exec_args, stdout = TRUE, stderr = TRUE),
     error = function(e) {
       structure(e$message, status = 127L)
     }
@@ -119,7 +120,7 @@ build_fastqc_args <- function(cfg, fastq_files, fastqc_dir) {
 }
 
 build_multiqc_args <- function(cfg, fastqc_dir, multiqc_dir) {
-  args <- c(fastqc_dir, "-o", multiqc_dir, "--title", cfg$multiqc$title, "--filename", cfg$multiqc$filename)
+  args <- c(fastqc_dir, "-o", multiqc_dir, "-n", cfg$multiqc$filename, "--title", cfg$multiqc$title, "-f")
   c(args, parse_extra_args(cfg$multiqc$extra_args))
 }
 
