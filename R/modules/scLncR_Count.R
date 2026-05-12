@@ -38,7 +38,7 @@ record_count_command <- function(ctx, step, command, args = character(0)) {
   cmd
 }
 
-run_count_command <- function(ctx, step, command, args = character(0), check = TRUE) {
+run_count_command <- function(ctx, step, command, args = character(0), check = TRUE, workdir = NULL) {
   cmd <- record_count_command(ctx, step, command, args)
   if (isTRUE(ctx$cfg$dry_run)) {
     log_count(ctx, sprintf("[dry_run] %s", cmd))
@@ -48,7 +48,14 @@ run_count_command <- function(ctx, step, command, args = character(0), check = T
   out_tmp <- tempfile("count_cmd_")
   res <- tryCatch(
     {
-      status <- suppressWarnings(system2(command, args = args, stdout = out_tmp, stderr = out_tmp))
+      oldwd <- NULL
+      if (!is.null(workdir)) {
+        dir.create(workdir, recursive = TRUE, showWarnings = FALSE)
+        oldwd <- getwd()
+        setwd(workdir)
+        on.exit(setwd(oldwd), add = TRUE)
+      }
+      status <- suppressWarnings(system2(command, args = shQuote(args), stdout = out_tmp, stderr = out_tmp))
       list(status = as.integer(status), err = NULL)
     },
     error = function(e) list(status = 127L, err = e$message)
@@ -75,7 +82,6 @@ init_count_context <- function(cfg) {
     manifest = file.path(cfg$output_path, "manifest"),
     logs = file.path(cfg$output_path, "logs"),
     reference = file.path(cfg$output_path, "reference"),
-    cellranger_ref = file.path(cfg$output_path, "reference", "cellranger"),
     count_results = file.path(cfg$output_path, "count_results")
   )
   for (d in unlist(dirs, use.names = FALSE)) dir.create(d, recursive = TRUE, showWarnings = FALSE)
@@ -182,13 +188,26 @@ build_combined_gtf_for_count <- function(cfg, ctx) {
 
 build_cellranger_reference <- function(cfg, ctx, combined_gtf) {
   ref_name <- paste0(cfg$project_name, "_lncRef")
-  ref_out <- file.path(ctx$dirs$cellranger_ref, ref_name)
+  ref_out <- file.path(ctx$dirs$reference, ref_name)
+  if (dir.exists(ref_out)) {
+    if (dir.exists(file.path(ref_out, "star")) && file.exists(file.path(ref_out, "genes", "genes.gtf"))) {
+      log_count(ctx, sprintf("Reusing existing Cell Ranger reference: %s", ref_out))
+      return(ref_out)
+    }
+    if (!isTRUE(cfg$dry_run)) {
+      stop(
+        "Cell Ranger reference output directory exists but does not look complete: ", ref_out,
+        "\nRemove it or choose a new output_path before rerunning."
+      )
+    }
+  }
   args <- c(
     "mkref",
     "--fasta", cfg$genome_file,
     "--genes", combined_gtf,
     "--genome", ref_name,
-    "--nthreads", as.character(cfg$threads)
+    "--nthreads", as.character(cfg$threads),
+    "--output-dir", ref_out
   )
   run_count_command(ctx, "cellranger_mkref", "cellranger", args, check = TRUE)
   ref_out
@@ -196,6 +215,13 @@ build_cellranger_reference <- function(cfg, ctx, combined_gtf) {
 
 run_cellranger_count_for_sample <- function(sample_id, cfg, ctx, transcriptome_path) {
   out_id <- sanitize_sample_id(sample_id)
+  out_dir <- file.path(ctx$dirs$count_results, out_id)
+  if (!isTRUE(cfg$dry_run) && dir.exists(out_dir)) {
+    stop(
+      "Cell Ranger count output already exists: ", out_dir,
+      "\nRemove it or choose a new output_path before rerunning this sample."
+    )
+  }
   args <- c(
     "count",
     paste0("--id=", out_id),
@@ -204,7 +230,7 @@ run_cellranger_count_for_sample <- function(sample_id, cfg, ctx, transcriptome_p
     paste0("--transcriptome=", transcriptome_path),
     paste0("--localcores=", cfg$threads)
   )
-  run_count_command(ctx, paste0("cellranger_count_", out_id), "cellranger", args, check = TRUE)
+  run_count_command(ctx, paste0("cellranger_count_", out_id), "cellranger", args, check = TRUE, workdir = ctx$dirs$count_results)
 }
 
 write_count_report <- function(cfg, ctx, manifest, combined_gtf, transcriptome_path = NA_character_) {
