@@ -33,12 +33,22 @@ validate_choice <- function(value, field_name, choices) {
   value
 }
 
+count_hisat2_index_exists <- function(prefix) {
+  if (is.null(prefix) || !nzchar(prefix)) return(FALSE)
+  ht2 <- paste0(prefix, ".", 1:8, ".ht2")
+  ht2l <- paste0(prefix, ".", 1:8, ".ht2l")
+  all(file.exists(ht2)) || all(file.exists(ht2l))
+}
+
 validate_count_tools <- function(cfg) {
   needed <- character(0)
   if (cfg$sequencing_platform == "10x" && cfg$count_engine == "cellranger") {
     needed <- c("cellranger")
-  } else if (cfg$count_engine == "featurecounts") {
-    needed <- c("featureCounts")
+  } else if (cfg$sequencing_platform == "smartseq2" && cfg$count_engine == "featurecounts") {
+    needed <- c("hisat2", "samtools", "featureCounts")
+    if (isTRUE(cfg$rebuild_hisat2_index) || !count_hisat2_index_exists(cfg$hisat2_index_prefix)) {
+      needed <- c(needed, "hisat2-build")
+    }
   } else if (cfg$count_engine == "starsolo") {
     needed <- c("STAR")
   }
@@ -70,6 +80,22 @@ load_count_config <- function(config_path) {
   cfg$samples_info <- cfg$samples_info %||% ""
   cfg$project_name <- cfg$project_name %||% "scLncR"
   cfg$threads <- cfg$threads %||% 4
+  cfg$read_layout <- tolower(cfg$read_layout %||% "auto")
+  cfg$single_pattern <- cfg$single_pattern %||% ".fastq.gz"
+  cfg$aligner <- tolower(cfg$aligner %||% "hisat2")
+  cfg$hisat2_index_prefix <- cfg$hisat2_index_prefix %||% ""
+  cfg$rebuild_hisat2_index <- isTRUE(cfg$rebuild_hisat2_index)
+  cfg$strandness <- cfg$strandness %||% "unstranded"
+  cfg$min_mapping_quality <- cfg$min_mapping_quality %||% 10
+  cfg$featurecounts <- cfg$featurecounts %||% list()
+  cfg$featurecounts$feature_type <- cfg$featurecounts$feature_type %||% "exon"
+  cfg$featurecounts$attribute_type <- cfg$featurecounts$attribute_type %||% "gene_id"
+  cfg$featurecounts$count_multi_mapping_reads <- isTRUE(cfg$featurecounts$count_multi_mapping_reads)
+  cfg$featurecounts$allow_multi_overlap <- isTRUE(cfg$featurecounts$allow_multi_overlap)
+  cfg$featurecounts$extra_args <- cfg$featurecounts$extra_args %||% ""
+  cfg$stringtie_abundance <- cfg$stringtie_abundance %||% list()
+  cfg$stringtie_abundance$enabled <- isTRUE(cfg$stringtie_abundance$enabled)
+  cfg$stringtie_abundance$extra_args <- cfg$stringtie_abundance$extra_args %||% ""
   cfg$dry_run <- isTRUE(cfg$dry_run)
   cfg$sample_limit <- cfg$sample_limit %||% 0
   cfg$include_samples <- cfg$include_samples %||% character(0)
@@ -81,31 +107,46 @@ load_count_config <- function(config_path) {
   cfg$output_path <- as_nonempty_chr(cfg$output_path, "output_path")
   cfg$samples_dirs <- as_nonempty_chr(cfg$samples_dirs, "samples_dirs")
   cfg$genome_file <- as_nonempty_chr(cfg$genome_file, "genome_file")
-  cfg$known_gtf <- as_nonempty_chr(cfg$known_gtf, "known_gtf")
-  cfg$lnc_gtf <- as_nonempty_chr(cfg$lnc_gtf, "lnc_gtf")
+  cfg$known_gtf <- trimws(as.character(cfg$known_gtf %||% ""))
+  cfg$lnc_gtf <- trimws(as.character(cfg$lnc_gtf %||% ""))
 
   cfg$threads <- as_int_ge(cfg$threads, "threads", min_value = 1L, strict_gt = TRUE)
   cfg$sample_limit <- as_int_ge(cfg$sample_limit, "sample_limit", min_value = 0L)
+  cfg$min_mapping_quality <- as_int_ge(cfg$min_mapping_quality, "min_mapping_quality", min_value = 0L)
   if (!is.character(cfg$include_samples)) cfg$include_samples <- as.character(unlist(cfg$include_samples))
   cfg$include_samples <- unique(cfg$include_samples[nzchar(cfg$include_samples)])
 
   cfg$sequencing_platform <- validate_choice(cfg$sequencing_platform, "sequencing_platform", c("10x", "smartseq2", "dropseq", "generic"))
   cfg$count_engine <- validate_choice(cfg$count_engine, "count_engine", c("cellranger", "featurecounts", "starsolo"))
+  cfg$read_layout <- validate_choice(cfg$read_layout, "read_layout", c("auto", "paired", "single"))
+  cfg$aligner <- validate_choice(cfg$aligner, "aligner", c("hisat2"))
+  cfg$strandness <- validate_choice(cfg$strandness, "strandness", c("unstranded", "FR", "RF", "fr", "rf"))
+  if (tolower(cfg$strandness) == "fr") cfg$strandness <- "FR"
+  if (tolower(cfg$strandness) == "rf") cfg$strandness <- "RF"
 
   if (!dir.exists(cfg$samples_dirs)) stop("samples_dirs does not exist: ", cfg$samples_dirs)
   if (!file.exists(cfg$genome_file)) stop("genome_file not found: ", cfg$genome_file)
-  if (!file.exists(cfg$known_gtf)) stop("known_gtf not found: ", cfg$known_gtf)
-  if (!file.exists(cfg$lnc_gtf)) stop("lnc_gtf not found: ", cfg$lnc_gtf)
   if (nzchar(cfg$combined_gtf) && !file.exists(cfg$combined_gtf)) {
     warning("combined_gtf path does not exist; it will be rebuilt from known_gtf + lnc_gtf.")
     cfg$combined_gtf <- ""
   }
+  if (!nzchar(cfg$combined_gtf)) {
+    if (!file.exists(cfg$known_gtf)) stop("known_gtf not found: ", cfg$known_gtf)
+    if (!file.exists(cfg$lnc_gtf)) stop("lnc_gtf not found: ", cfg$lnc_gtf)
+  }
   if (nzchar(cfg$samples_info) && !file.exists(cfg$samples_info)) warning("samples_info not found: ", cfg$samples_info)
   if (!dir.exists(cfg$output_path)) dir.create(cfg$output_path, recursive = TRUE, showWarnings = FALSE)
 
+  if (cfg$sequencing_platform == "10x" && cfg$count_engine != "cellranger") {
+    stop("10x count currently supports count_engine: cellranger.")
+  }
+  if (cfg$sequencing_platform == "smartseq2" && cfg$count_engine != "featurecounts") {
+    stop("Smart-seq2 currently supports count_engine: featurecounts.")
+  }
+
   # support-level messaging
-  if (!(cfg$sequencing_platform == "10x" && cfg$count_engine == "cellranger")) {
-    warning("Current strong support is 10x + cellranger. Selected interface is experimental.")
+  if (cfg$sequencing_platform %in% c("dropseq", "generic")) {
+    warning("Drop-seq/generic count interfaces are placeholders in this version.")
   }
 
   validate_count_tools(cfg)

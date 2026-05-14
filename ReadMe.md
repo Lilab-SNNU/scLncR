@@ -224,12 +224,57 @@ prelnc→count bridge:
 - `final_lnc.gtf` is the predicted candidate lncRNA annotation;
 - `reference/combined_mRNA_lncRNA.gtf` is the augmented annotation for count;
 - 10x quantification uses raw FASTQ + augmented reference via Cell Ranger.
+- Smart-seq2 quantification uses raw FASTQ + augmented reference via HISAT2, samtools, and featureCounts.
 
 Run prelnc:
 
 ```shell
 scLncR prelnc -c R/confings/config_LncPre.yaml
 ```
+
+### Smart-seq2 count workflow
+Smart-seq2 is full-length-like single-cell RNA-seq and should not be processed with Cell Ranger. For Smart-seq2, scLncR uses HISAT2 alignment, samtools BAM sorting/indexing, and featureCounts gene-level quantification against the augmented `combined_mRNA_lncRNA.gtf` from prelnc.
+
+Example command:
+
+```shell
+scLncR count -c R/confings/config_Count.yaml
+```
+
+Example configuration fragment:
+
+```yaml
+sequencing_platform: "smartseq2"
+count_engine: "featurecounts"
+samples_dirs: "/path/to/smartseq2_fastq"
+combined_gtf: "/path/to/step_LncPre/reference/combined_mRNA_lncRNA.gtf"
+read_layout: "paired"      # auto | paired | single
+strandness: "unstranded"   # unstranded | FR | RF
+```
+
+Smart-seq2 count output:
+
+```text
+output_path/
+├── manifest/
+│   ├── smartseq2_fastq_manifest.tsv
+│   └── count_input_validation_report.md
+├── logs/
+│   ├── count_run.log
+│   ├── commands.log
+│   └── per_sample_status.tsv
+├── index/hisat2/
+├── alignment/sam/
+├── alignment/sorted_bam/
+├── featurecounts/
+│   ├── smartseq2_featureCounts.txt
+│   ├── smartseq2_featureCounts.txt.summary
+│   ├── smartseq2_count_matrix.tsv
+│   └── smartseq2_count_matrix.rds
+└── count_run_report.md
+```
+
+The main matrix is `featurecounts/smartseq2_count_matrix.tsv`: rows are `gene_id` values from the augmented GTF and columns are Smart-seq2 sample IDs. StringTie abundance is not used as the primary count matrix because featureCounts provides direct gene-level counts from the augmented annotation.
 
 ### Command-line usage:
 ***scLncR Main Program***

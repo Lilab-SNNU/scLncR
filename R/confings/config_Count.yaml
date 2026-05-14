@@ -17,10 +17,31 @@ project_name: "scLncR"
 output_path: "/home/data/scLncR/paper/paper_case/step2_count"
 threads: 24
 
+# 10x FASTQ parsing
 fastq_sample_regex: "^(.*?)_S\\d+_L\\d+_([IR][12])_\\d+\\.fastq\\.gz$"
 r1_pattern: "_R1_"
 r2_pattern: "_R2_"
 i1_pattern: "_I1_"
+
+# Smart-seq2 / generic FASTQ parsing and alignment
+read_layout: "auto"                  # auto | paired | single
+single_pattern: ".fastq.gz"
+aligner: "hisat2"
+hisat2_index_prefix: ""
+rebuild_hisat2_index: false
+strandness: "unstranded"             # unstranded | FR | RF
+min_mapping_quality: 10
+
+featurecounts:
+  feature_type: "exon"
+  attribute_type: "gene_id"
+  count_multi_mapping_reads: false
+  allow_multi_overlap: false
+  extra_args: ""
+
+stringtie_abundance:
+  enabled: false
+  extra_args: ""
 
 dry_run: true
 sample_limit: 0
