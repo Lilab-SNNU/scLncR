@@ -45,8 +45,8 @@ load_dataProcess_config <- function(config_path) {
     stop("Directory in 'counts_dir' does not exist: ", cfg$counts_dir)
   }
   
-  # samples_info must be a readable file
-  if (!file.exists(cfg$samples_info)) {
+  # samples_info is optional, but must be readable when provided.
+  if (nzchar(cfg$samples_info) && !file.exists(cfg$samples_info)) {
     stop("Sample metadata file not found: ", cfg$samples_info)
   }
 
@@ -73,7 +73,8 @@ load_dataProcess_config <- function(config_path) {
   }
 
   # anno_method
-  allowed_methods <- c("SingleR", "scMM")
+  allowed_methods <- c("SingleR", "scMM", "none")
+  if (tolower(cfg$anno_method) == "none") cfg$anno_method <- "none"
   if (!cfg$anno_method %in% allowed_methods) {
     stop(
       "Invalid 'anno_method': '", cfg$anno_method, "'. ",

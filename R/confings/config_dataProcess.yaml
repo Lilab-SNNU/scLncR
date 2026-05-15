@@ -17,7 +17,7 @@ nfeatures: 6000                                                # Numeric: Number
 dims: 15                                                       # Numeric: Dimensionality for UMAP/tSNE
 resolution: 0.5                                                # Numeric: Clustering resolution (higher = more clusters)
 samples_info: "~/data/paper_test/samples_info.txt"             # String: Path to metadata CSV file for all samples
-anno_method: "SingleR"                                         # String: Annotation method ("SingleR" or "scMM")
+anno_method: "SingleR"                                         # String: Annotation method ("SingleR", "scMM", or "none")
 ref_file: "~/data/singler/Ryu_2019_507252.rds"                 # String: Reference file path for SingleR (required when anno_method=SingleR)
 marker_gene_file: ""                                           # String: Marker gene file path for scMM (required when anno_method=scMM)
 tissue: ""                                                     # String: Tissue type for scMM (e.g., "lung")
@@ -32,6 +32,7 @@ output_dir: "~/paper/paper_case/step3_dataProcess"             # String: Root ou
 # 3. Required Fields:
 #    - ref_file is mandatory when anno_method="SingleR"
 #    - marker_gene_file and tissue are mandatory when anno_method="scMM"
+#    - use anno_method: "none" to run preprocessing without annotation
 # 4. Path Conventions:
 #    - Absolute path: /home/user/data/s1
 #    - Relative path: data/s1 (relative to working directory)

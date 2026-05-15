@@ -528,6 +528,10 @@ run_dataProcess <- function(user_args, script_dir) {
     setwd(output_dir)
     
     count_dirs <- system(sprintf("find %s -name filtered_feature_bc_matrix", counts_dir), intern=T)
+    if (length(count_dirs) == 0) {
+        stop("No filtered_feature_bc_matrix directories found under counts_dir: ", counts_dir,
+             "\nCurrent dataProcess expects 10x/Cell Ranger-style matrix directories.")
+    }
     project_names <- basename(dirname(dirname(count_dirs)))
     seu_list <- list()
     colour=c("#DC143C","#0000FF","#20B2AA","#FFA500","#9370DB","#98FB98","#F08080","#1E90FF","#7CFC00","#FFFF00",  
@@ -569,8 +573,12 @@ run_dataProcess <- function(user_args, script_dir) {
         seu_obj <- sc_anno_scMM(seu_obj, db_path=marker_gene_file, output_dir=anno_dir, tissue=tissue, n_top_markers=n_top_markers)
     }
     
-    Anno_plot(seu_obj, output_dir=anno_dir, colour=colour)
-    cell_type_stats(seu_obj, colour=colour, output_dir=anno_dir)
+    if ("cell_type" %in% colnames(seu_obj@meta.data)) {
+        Anno_plot(seu_obj, output_dir=anno_dir, colour=colour)
+        cell_type_stats(seu_obj, colour=colour, output_dir=anno_dir)
+    } else {
+        message("No cell_type column found; skipping annotation plots and cell-type statistics.")
+    }
     
     saveRDS(seu_obj, file=file.path(anno_dir, "/anno_result.rds"))
 }
