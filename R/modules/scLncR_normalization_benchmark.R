@@ -72,6 +72,44 @@ safe_average_expression <- function(seu_obj, assay, group_by) {
   as.matrix(avg)
 }
 
+configure_benchmark_future <- function(cfg) {
+  if (!requireNamespace("future", quietly = TRUE)) return(invisible(FALSE))
+  size_gb <- as.numeric(cfg$future_globals_max_size_gb %||% 50)
+  if (is.finite(size_gb) && size_gb > 0) {
+    options(future.globals.maxSize = size_gb * 1024^3)
+  }
+  plan_name <- tolower(as.character(cfg$future_plan %||% "sequential"))
+  if (plan_name == "sequential") {
+    future::plan(future::sequential)
+  }
+  invisible(TRUE)
+}
+
+summarize_values_sparse_aware <- function(mat) {
+  total <- length(mat)
+  if (total == 0) {
+    return(list(mean = NA_real_, median = NA_real_, sd = NA_real_, zero_fraction = NA_real_))
+  }
+  if (inherits(mat, "sparseMatrix")) {
+    x <- mat@x
+    n_nonzero <- length(x)
+    n_zero <- total - n_nonzero
+    mean_val <- if (n_nonzero == 0) 0 else sum(x, na.rm = TRUE) / total
+    zero_fraction <- n_zero / total
+    median_val <- if (zero_fraction >= 0.5) 0 else stats::median(as.numeric(mat), na.rm = TRUE)
+    sum_sq <- if (n_nonzero == 0) 0 else sum(x^2, na.rm = TRUE)
+    sd_val <- if (total > 1) sqrt(max((sum_sq - total * mean_val^2) / (total - 1), 0)) else NA_real_
+    return(list(mean = mean_val, median = median_val, sd = sd_val, zero_fraction = zero_fraction))
+  }
+  vals <- as.numeric(mat)
+  list(
+    mean = mean(vals, na.rm = TRUE),
+    median = stats::median(vals, na.rm = TRUE),
+    sd = stats::sd(vals, na.rm = TRUE),
+    zero_fraction = mean(vals == 0, na.rm = TRUE)
+  )
+}
+
 read_normalization_benchmark_config <- function(config_path) {
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("Package 'yaml' is required. Install with: install.packages('yaml')")
@@ -95,13 +133,17 @@ read_normalization_benchmark_config <- function(config_path) {
   cfg$group_by <- cfg$group_by %||% "cell_type"
   cfg$condition_col <- cfg$condition_col %||% "Group"
   cfg$cluster_col <- cfg$cluster_col %||% "seurat_clusters"
-  cfg$strategies <- cfg$strategies %||% c("joint_lognormalize", "separate_lognormalize", "sctransform", "scran")
+  cfg$strategies <- cfg$strategies %||% c("joint_lognormalize", "separate_lognormalize")
   cfg$marker_test <- cfg$marker_test %||% "wilcox"
   cfg$logfc_threshold <- as.numeric(cfg$logfc_threshold %||% 0.25)
   cfg$min_pct <- as.numeric(cfg$min_pct %||% 0.1)
   cfg$padj_threshold <- as.numeric(cfg$padj_threshold %||% 0.05)
   cfg$top_n_markers <- as.integer(cfg$top_n_markers %||% 50)
   cfg$random_seed <- as.integer(cfg$random_seed %||% 1234)
+  cfg$future_plan <- cfg$future_plan %||% "sequential"
+  cfg$future_globals_max_size_gb <- as.numeric(cfg$future_globals_max_size_gb %||% 50)
+  cfg$max_cells_per_ident <- as.integer(cfg$max_cells_per_ident %||% 0)
+  cfg$save_normalized_objects <- isTRUE(cfg$save_normalized_objects %||% TRUE)
 
   cfg$strategies <- unique(as.character(unlist(cfg$strategies)))
   cfg
@@ -119,7 +161,7 @@ normalize_with_strategy <- function(seu_obj, strategy, lnc_name, random_seed = 1
 
   if (strategy == "separate_lognormalize") {
     obj <- seu_obj
-    counts_mat <- as.matrix(safe_get_assay_data(obj, assay = "RNA", layer = "counts"))
+    counts_mat <- safe_get_assay_data(obj, assay = "RNA", layer = "counts")
     lnc_idx <- grepl(lnc_pattern, rownames(counts_mat))
     if (sum(lnc_idx) == 0) {
       stop("No lncRNA features found for pattern: ", lnc_pattern)
@@ -134,8 +176,8 @@ normalize_with_strategy <- function(seu_obj, strategy, lnc_name, random_seed = 1
     seu_gene <- Seurat::NormalizeData(seu_gene, normalization.method = "LogNormalize", scale.factor = 10000, verbose = FALSE)
 
     data_bind <- rbind(
-      as.matrix(safe_get_assay_data(seu_gene, assay = "RNA", layer = "data")),
-      as.matrix(safe_get_assay_data(seu_lnc, assay = "RNA", layer = "data"))
+      safe_get_assay_data(seu_gene, assay = "RNA", layer = "data"),
+      safe_get_assay_data(seu_lnc, assay = "RNA", layer = "data")
     )
     data_bind <- data_bind[rownames(counts_mat), colnames(counts_mat), drop = FALSE]
     obj <- safe_set_assay_data(obj, assay = "RNA", layer = "data", new_data = data_bind)
@@ -168,13 +210,13 @@ normalize_with_strategy <- function(seu_obj, strategy, lnc_name, random_seed = 1
     }
 
     obj <- seu_obj
-    counts_mat <- as.matrix(safe_get_assay_data(obj, assay = "RNA", layer = "counts"))
+    counts_mat <- safe_get_assay_data(obj, assay = "RNA", layer = "counts")
     sce <- SingleCellExperiment::SingleCellExperiment(list(counts = counts_mat))
     set.seed(random_seed)
     quick_clusters <- scran::quickCluster(sce)
     sce <- scran::computeSumFactors(sce, clusters = quick_clusters)
     sce <- scuttle::logNormCounts(sce)
-    logcounts_mat <- as.matrix(SummarizedExperiment::assay(sce, "logcounts"))
+    logcounts_mat <- SummarizedExperiment::assay(sce, "logcounts")
     logcounts_mat <- logcounts_mat[rownames(counts_mat), colnames(counts_mat), drop = FALSE]
     obj <- safe_set_assay_data(obj, assay = "RNA", layer = "data", new_data = logcounts_mat)
     return(list(object = obj, assay = "RNA", message = "OK"))
@@ -190,7 +232,8 @@ safe_find_all_markers <- function(
   marker_test = "wilcox",
   logfc_threshold = 0.25,
   min_pct = 0.1,
-  random_seed = 1234
+  random_seed = 1234,
+  max_cells_per_ident = 0
 ) {
   if (!(group_by %in% colnames(seu_obj@meta.data))) {
     return(data.frame())
@@ -200,6 +243,18 @@ safe_find_all_markers <- function(
   idents[is.na(idents)] <- "NA_group"
   if (length(unique(idents)) < 2) {
     return(data.frame())
+  }
+  if (is.finite(max_cells_per_ident) && max_cells_per_ident > 0) {
+    set.seed(random_seed)
+    keep_idx <- unlist(
+      lapply(split(seq_along(idents), idents), function(idx) {
+        sample(idx, size = min(length(idx), max_cells_per_ident))
+      }),
+      use.names = FALSE
+    )
+    keep_idx <- sort(unique(keep_idx))
+    seu_obj <- subset(seu_obj, cells = colnames(seu_obj)[keep_idx])
+    idents <- idents[keep_idx]
   }
   Seurat::Idents(seu_obj) <- idents
 
@@ -384,6 +439,10 @@ write_normalization_benchmark_report <- function(
     paste0("- condition_col: `", cfg$condition_col, "`"),
     paste0("- cluster_col: `", cfg$cluster_col, "`"),
     paste0("- random_seed: ", cfg$random_seed),
+    paste0("- future_plan: `", cfg$future_plan, "`"),
+    paste0("- future_globals_max_size_gb: ", cfg$future_globals_max_size_gb),
+    paste0("- max_cells_per_ident: ", cfg$max_cells_per_ident),
+    paste0("- save_normalized_objects: ", cfg$save_normalized_objects),
     "",
     "## Strategy Status",
     "- See `stability/strategy_qc_summary.csv` for per-strategy status and error messages.",
@@ -431,6 +490,7 @@ run_normalization_benchmark <- function(cfg) {
     stop("Package 'yaml' is required.")
   }
 
+  configure_benchmark_future(cfg)
   set.seed(cfg$random_seed)
   output_dir <- cfg$output_dir
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
@@ -450,7 +510,7 @@ run_normalization_benchmark <- function(cfg) {
     stop("Input Seurat object does not contain RNA assay.")
   }
 
-  counts_input <- as.matrix(safe_get_assay_data(seu_input, assay = "RNA", layer = "counts"))
+  counts_input <- safe_get_assay_data(seu_input, assay = "RNA", layer = "counts")
   lnc_pattern <- paste0("^", cfg$lnc_name)
   lnc_idx_global <- grepl(lnc_pattern, rownames(counts_input))
   if (sum(lnc_idx_global) == 0) {
@@ -518,32 +578,34 @@ run_normalization_benchmark <- function(cfg) {
       obj_norm <- norm_result$object
       assay_used <- norm_result$assay
       Seurat::DefaultAssay(obj_norm) <- assay_used
-      saveRDS(obj_norm, file.path(output_dir, "normalized_objects", paste0(strategy, ".rds")))
+      if (isTRUE(cfg$save_normalized_objects)) {
+        saveRDS(obj_norm, file.path(output_dir, "normalized_objects", paste0(strategy, ".rds")))
+      }
 
-      data_mat <- as.matrix(safe_get_assay_data(obj_norm, assay = assay_used, layer = "data"))
+      data_mat <- safe_get_assay_data(obj_norm, assay = assay_used, layer = "data")
       rownames_data <- rownames(data_mat)
       lnc_idx <- grepl(lnc_pattern, rownames_data)
-      lnc_vals <- as.numeric(data_mat[lnc_idx, , drop = FALSE])
-      mrna_vals <- as.numeric(data_mat[!lnc_idx, , drop = FALSE])
+      lnc_stats <- summarize_values_sparse_aware(data_mat[lnc_idx, , drop = FALSE])
+      mrna_stats <- summarize_values_sparse_aware(data_mat[!lnc_idx, , drop = FALSE])
 
-      lnc_signal_summary <<- rbind(
+      lnc_signal_summary <- rbind(
         lnc_signal_summary,
         data.frame(
           strategy = strategy,
           feature_type = "lncRNA",
-          mean = mean(lnc_vals, na.rm = TRUE),
-          median = stats::median(lnc_vals, na.rm = TRUE),
-          sd = stats::sd(lnc_vals, na.rm = TRUE),
-          zero_fraction = mean(lnc_vals == 0, na.rm = TRUE),
+          mean = lnc_stats$mean,
+          median = lnc_stats$median,
+          sd = lnc_stats$sd,
+          zero_fraction = lnc_stats$zero_fraction,
           stringsAsFactors = FALSE
         ),
         data.frame(
           strategy = strategy,
           feature_type = "mRNA",
-          mean = mean(mrna_vals, na.rm = TRUE),
-          median = stats::median(mrna_vals, na.rm = TRUE),
-          sd = stats::sd(mrna_vals, na.rm = TRUE),
-          zero_fraction = mean(mrna_vals == 0, na.rm = TRUE),
+          mean = mrna_stats$mean,
+          median = mrna_stats$median,
+          sd = mrna_stats$sd,
+          zero_fraction = mrna_stats$zero_fraction,
           stringsAsFactors = FALSE
         )
       )
@@ -555,7 +617,8 @@ run_normalization_benchmark <- function(cfg) {
         marker_test = cfg$marker_test,
         logfc_threshold = cfg$logfc_threshold,
         min_pct = cfg$min_pct,
-        random_seed = cfg$random_seed
+        random_seed = cfg$random_seed,
+        max_cells_per_ident = cfg$max_cells_per_ident
       )
 
       write.csv(
@@ -578,7 +641,7 @@ run_normalization_benchmark <- function(cfg) {
         sig_lnc_markers <- character(0)
       }
 
-      marker_summary <<- rbind(
+      marker_summary <- rbind(
         marker_summary,
         data.frame(
           strategy = strategy,
@@ -590,24 +653,24 @@ run_normalization_benchmark <- function(cfg) {
         )
       )
 
-      strategy_markers[[strategy]] <<- markers_df
-      strategy_sig_marker_sets[[strategy]] <<- sig_markers
-      strategy_sig_lnc_marker_sets[[strategy]] <<- sig_lnc_markers
-      strategy_top_lnc_ranks[[strategy]] <<- build_top_lnc_rank(
+      strategy_markers[[strategy]] <- markers_df
+      strategy_sig_marker_sets[[strategy]] <- sig_markers
+      strategy_sig_lnc_marker_sets[[strategy]] <- sig_lnc_markers
+      strategy_top_lnc_ranks[[strategy]] <- build_top_lnc_rank(
         markers_df = markers_df,
         lnc_pattern = lnc_pattern,
         padj_threshold = cfg$padj_threshold,
         top_n_markers = cfg$top_n_markers
       )
-      strategy_lnc_hvg_sets[[strategy]] <<- safe_find_lnc_hvg(obj_norm, assay_used, lnc_genes_global)
-      strategy_group_avg[[strategy]] <<- safe_average_expression(obj_norm, assay_used, group_by)
+      strategy_lnc_hvg_sets[[strategy]] <- safe_find_lnc_hvg(obj_norm, assay_used, lnc_genes_global)
+      strategy_group_avg[[strategy]] <- safe_average_expression(obj_norm, assay_used, group_by)
       if (cfg$cluster_col %in% colnames(obj_norm@meta.data)) {
-        strategy_cluster_avg[[strategy]] <<- safe_average_expression(obj_norm, assay_used, cfg$cluster_col)
+        strategy_cluster_avg[[strategy]] <- safe_average_expression(obj_norm, assay_used, cfg$cluster_col)
       } else {
-        strategy_cluster_avg[[strategy]] <<- NULL
+        strategy_cluster_avg[[strategy]] <- NULL
       }
 
-      strategy_qc <<- rbind(
+      strategy_qc <- rbind(
         strategy_qc,
         data.frame(
           strategy = strategy,
