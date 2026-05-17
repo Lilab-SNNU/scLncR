@@ -1,0 +1,25 @@
+# =============================================================================
+# scLncR - Smart-seq2 dataProcess example
+# =============================================================================
+
+input_format: "featurecounts_matrix"
+sequencing_platform: "smartseq2"
+counts_dir: ""
+counts_matrix: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step2_count/featurecounts/smartseq2_count_matrix.tsv"
+project_name: "scLncR_smartseq2"
+
+mt_name: "AthM"
+min.RNAs: 100
+max.RNAs: 7000
+percent.mt: 10
+lnc_name: "AthLnc"
+nfeatures: 6000
+dims: 15
+resolution: 0.5
+samples_info: "/home/data/scLncR/data/smart-seq2/SRP065494/samples_info.txt"
+anno_method: "none"
+ref_file: ""
+marker_gene_file: ""
+tissue: ""
+n_top_markers: 3
+output_dir: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step3_dataProcess"

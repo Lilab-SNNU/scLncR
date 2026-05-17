@@ -1,0 +1,46 @@
+# =============================================================================
+# scLncR - Smart-seq2 count example
+# =============================================================================
+
+sequencing_platform: "smartseq2"
+count_engine: "featurecounts"
+
+samples_dirs: "/home/data/scLncR/data/smart-seq2/SRP065494/"
+samples_info: "/home/data/scLncR/data/smart-seq2/SRP065494/samples_info.txt"
+
+genome_file: "/home/data/scLncR/genome/TAIR10.fa"
+known_gtf: "/home/data/scLncR/genome/Araport11_current.gtf"
+lnc_gtf: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step1_prelnc/final_lnc.gtf"
+combined_gtf: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step1_prelnc/reference/combined_mRNA_lncRNA.gtf"
+
+project_name: "scLncR_smartseq2"
+output_path: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step2_count"
+threads: 24
+
+fastq_sample_regex: "^(.*?)_S\\d+_L\\d+_([IR][12])_\\d+\\.fastq\\.gz$"
+r1_pattern: "_R1_"
+r2_pattern: "_R2_"
+i1_pattern: "_I1_"
+
+read_layout: "single"
+single_pattern: ".fastq.gz"
+aligner: "hisat2"
+hisat2_index_prefix: ""
+rebuild_hisat2_index: false
+strandness: "unstranded"
+min_mapping_quality: 10
+
+featurecounts:
+  feature_type: "exon"
+  attribute_type: "gene_id"
+  count_multi_mapping_reads: false
+  allow_multi_overlap: false
+  extra_args: ""
+
+stringtie_abundance:
+  enabled: false
+  extra_args: ""
+
+dry_run: false
+sample_limit: 0
+include_samples: []

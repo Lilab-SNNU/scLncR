@@ -1,0 +1,38 @@
+# =============================================================================
+# scLncR - Smart-seq2 prelnc example
+# =============================================================================
+
+samples_dirs: "/home/data/scLncR/data/smart-seq2/SRP065494/"
+samples_info: "/home/data/scLncR/data/smart-seq2/SRP065494/samples_info.txt"
+project_name: "scLncR_smartseq2"
+output_path: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step1_prelnc"
+genome_file: "/home/data/scLncR/genome/TAIR10.fa"
+gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
+lncrna_name: "AthLnc"
+threads: 24
+
+input_type: "fastq"
+sequencing_platform: "smartseq2"
+read_layout: "single"
+
+fastq_sample_regex: "^(.*?)_S\\d+_L\\d+_([IR][12])_\\d+\\.fastq\\.gz$"
+r1_pattern: "_R1_"
+r2_pattern: "_R2_"
+i1_pattern: "_I1_"
+
+aligner_for_discovery: "hisat2"
+assembler: "stringtie"
+strandness: "unstranded"
+min_transcript_length: 200
+gffcompare_classes: ["i", "u", "x", "o"]
+min_mapping_quality: 30
+rebuild_hisat2_index: false
+hisat2_index_prefix: ""
+
+keep_intermediate: true
+dry_run: false
+sample_limit: 0
+include_samples: []
+
+prelnc_mode: "fastq_helper"
+bam_manifest: ""

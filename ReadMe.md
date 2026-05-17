@@ -276,6 +276,30 @@ output_path/
 
 The main matrix is `featurecounts/smartseq2_count_matrix.tsv`: rows are `gene_id` values from the augmented GTF and columns are Smart-seq2 sample IDs. StringTie abundance is not used as the primary count matrix because featureCounts provides direct gene-level counts from the augmented annotation.
 
+### Smart-seq2 dataProcess and normalization benchmark
+
+Smart-seq2 featureCounts output can enter `dataProcess` through the featureCounts matrix input mode. This keeps the existing 10x `filtered_feature_bc_matrix` input path unchanged.
+
+Example configuration fragment:
+
+```yaml
+input_format: "featurecounts_matrix"
+sequencing_platform: "smartseq2"
+counts_matrix: "/path/to/featurecounts/smartseq2_count_matrix.tsv"
+samples_info: "/path/to/samples_info.txt"
+anno_method: "none"
+lnc_name: "AthLnc"
+```
+
+Example commands:
+
+```shell
+scLncR dataProcess -c R/confings/examples/config_dataProcess.smartseq2.yaml
+Rscript scripts/run_normalization_benchmark.R -c R/confings/examples/config_normalization_benchmark.smartseq2.yaml
+```
+
+Smart-seq2 example YAML files are available under `R/confings/examples/`.
+
 ### Command-line usage:
 ***scLncR Main Program***
 ```shell

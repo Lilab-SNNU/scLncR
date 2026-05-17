@@ -7,7 +7,11 @@
 # =============================================================================
 
 # Core Parameters
+input_format: "10x"                                           # String: Input format ("10x" or "featurecounts_matrix")
+sequencing_platform: "10x"                                    # String: Sequencing platform ("10x", "smartseq2", or "generic")
 counts_dir: "~/paper/paper_case/step2_count"                   # String: Paths to sample directories (comma-separated)
+counts_matrix: ""                                              # String: featureCounts matrix TSV when input_format="featurecounts_matrix"
+project_name: "scLncR"                                        # String: Project name for featurecounts_matrix input
 mt_name: "AthM"                                                # String: Mitochondrial gene prefix (e.g., "MT")
 min.RNAs: 100                                                  # Numeric: Minimum RNA count per cell (filters low-quality cells)
 max.RNAs: 7000                                                 # Numeric: Maximum RNA count per cell (filters high-count cells)

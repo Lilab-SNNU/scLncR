@@ -54,3 +54,25 @@ strandness: "unstranded"
 ```
 
 The main outputs are `featurecounts/smartseq2_featureCounts.txt`, `featurecounts/smartseq2_count_matrix.tsv`, and `featurecounts/smartseq2_count_matrix.rds`. The count matrix rows are `gene_id` values from the augmented GTF and columns are sample IDs.
+
+## Smart-seq2 DataProcess And Benchmark
+
+Smart-seq2 count output can be passed to `dataProcess` through the featureCounts matrix input mode:
+
+```yaml
+input_format: "featurecounts_matrix"
+sequencing_platform: "smartseq2"
+counts_matrix: "/path/to/featurecounts/smartseq2_count_matrix.tsv"
+samples_info: "/path/to/samples_info.txt"
+anno_method: "none"
+lnc_name: "AthLnc"
+```
+
+Run:
+
+```bash
+scLncR dataProcess -c R/confings/examples/config_dataProcess.smartseq2.yaml
+Rscript scripts/run_normalization_benchmark.R -c R/confings/examples/config_normalization_benchmark.smartseq2.yaml
+```
+
+The Smart-seq2 example configs are stored in `R/confings/examples/`. This path preserves the existing 10x `filtered_feature_bc_matrix` input mode while adding a separate featureCounts matrix input path for Smart-seq2.

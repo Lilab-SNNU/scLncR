@@ -19,12 +19,27 @@ load_dataProcess_config <- function(config_path) {
 
   # Read YAML
   cfg <- yaml::read_yaml(config_path)
+  if (is.null(cfg) || !is.list(cfg)) {
+    stop("Configuration file is empty or malformed: ", config_path)
+  }
+
+  `%||%` <- function(x, y) {
+    if (is.null(x) || length(x) == 0) return(y)
+    x
+  }
+
+  cfg$input_format <- tolower(cfg$input_format %||% "10x")
+  cfg$sequencing_platform <- tolower(cfg$sequencing_platform %||% "10x")
+  cfg$counts_dir <- cfg$counts_dir %||% ""
+  cfg$counts_matrix <- cfg$counts_matrix %||% ""
+  cfg$project_name <- cfg$project_name %||% "scLncR"
+  cfg$samples_info <- cfg$samples_info %||% ""
 
   # -----------------------------
   # Required fields check
   # -----------------------------
   required_fields <- c(
-    "counts_dir", "mt_name", "min.RNAs", "max.RNAs", "percent.mt",
+    "mt_name", "min.RNAs", "max.RNAs", "percent.mt",
     "lnc_name", "nfeatures", "dims", "resolution",
     "samples_info", "anno_method", "ref_file", "marker_gene_file", 
     "tissue", "n_top_markers", "output_dir"
@@ -39,10 +54,41 @@ load_dataProcess_config <- function(config_path) {
   # Path existence validation
   # -----------------------------
 
-  # counts_dir: comma-separated paths; each must be a directory
-  # Ensure output_dir is a directory (create if needed)
-  if (!dir.exists(cfg$counts_dir)) {
-    stop("Directory in 'counts_dir' does not exist: ", cfg$counts_dir)
+  allowed_input_formats <- c("10x", "featurecounts_matrix")
+  if (!(cfg$input_format %in% allowed_input_formats)) {
+    stop(
+      "Invalid 'input_format': '", cfg$input_format, "'. ",
+      "Must be one of: ", paste(allowed_input_formats, collapse = ", ")
+    )
+  }
+
+  allowed_platforms <- c("10x", "smartseq2", "generic")
+  if (!(cfg$sequencing_platform %in% allowed_platforms)) {
+    stop(
+      "Invalid 'sequencing_platform': '", cfg$sequencing_platform, "'. ",
+      "Must be one of: ", paste(allowed_platforms, collapse = ", ")
+    )
+  }
+
+  if (cfg$input_format == "10x") {
+    if (!is.character(cfg$counts_dir) || !nzchar(cfg$counts_dir)) {
+      stop("'counts_dir' is required when input_format='10x'.")
+    }
+    if (!dir.exists(cfg$counts_dir)) {
+      stop("Directory in 'counts_dir' does not exist: ", cfg$counts_dir)
+    }
+  }
+
+  if (cfg$input_format == "featurecounts_matrix") {
+    if (!is.character(cfg$counts_matrix) || !nzchar(cfg$counts_matrix)) {
+      stop("'counts_matrix' is required when input_format='featurecounts_matrix'.")
+    }
+    if (!file.exists(cfg$counts_matrix)) {
+      stop("featureCounts matrix file not found: ", cfg$counts_matrix)
+    }
+    if (cfg$sequencing_platform != "smartseq2") {
+      warning("input_format='featurecounts_matrix' is primarily intended for sequencing_platform='smartseq2'.")
+    }
   }
   
   # samples_info is optional, but must be readable when provided.

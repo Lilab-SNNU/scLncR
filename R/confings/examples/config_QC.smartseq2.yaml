@@ -1,0 +1,28 @@
+# =============================================================================
+# scLncR - Smart-seq2 raw FASTQ QC example
+# =============================================================================
+
+input_dir: "/home/data/scLncR/data/smart-seq2/SRP065494/"
+output_dir: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step0_qc"
+file_pattern: "*.fastq.gz"
+recursive: false
+
+threads: 8
+
+fastqc:
+  enabled: true
+  extract: true
+  nogroup: false
+  contaminants: ""
+  adapters: ""
+  extra_args: ""
+
+multiqc:
+  enabled: true
+  title: "scLncR Smart-seq2 raw FASTQ QC report"
+  filename: "multiqc_report.html"
+  extra_args: ""
+
+dry_run: false
+sample_limit: 0
+include_files: []
