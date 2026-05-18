@@ -659,11 +659,16 @@ run_function <- function(args, script_dir) {
   # -----------------------------
   # 2. Load config (with dynamic validation)
   # -----------------------------
-  config_loader_path <- file.path(script_dir, "R", "utils", "config_loader_LncExplore.R")
-  if (!file.exists(config_loader_path)) {
-    stop("Config loader not found: ", config_loader_path)
+  config_loader_path <- file.path(script_dir, "R", "utils", "config_loader_function.R")
+  legacy_loader_path <- file.path(script_dir, "R", "utils", "config_loader_LncExplore.R")
+  if (file.exists(config_loader_path)) {
+    source(config_loader_path, local = TRUE)
+  } else if (file.exists(legacy_loader_path)) {
+    warning("Using legacy function config loader: ", legacy_loader_path)
+    source(legacy_loader_path, local = TRUE)
+  } else if (!exists("load_LncExplore_config", mode = "function")) {
+    stop("Config loader not found. Expected: ", config_loader_path)
   }
-  source(config_loader_path, local = TRUE)
   
   cfg <- load_LncExplore_config(config_path)
   
