@@ -65,6 +65,7 @@ if (cmd == "qc") {
 } else if (cmd == "function") {
   source(file.path(script_dir, "R", "modules", "scLncR_load_packages.R"))
   source(file.path(script_dir, "R", "utils", "config_loader_function.R"))
+  source(file.path(script_dir, "R", "modules", "scLncR_dataProcess.R"))
   source(file.path(script_dir, "R", "modules", "scLncR_function.R"))
   run_function(sub_args, script_dir)
 } else if (cmd == "shiny") {

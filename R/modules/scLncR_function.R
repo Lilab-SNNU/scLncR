@@ -100,7 +100,21 @@ SnScEnrichmentAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05
     ), file = "sn_vs_sc_enrichment_results/gene_classification.rds")
 
     write.csv(summary_list, "sn_vs_sc_enrichment_results/gene_category_summary.csv", row.names = FALSE)
-    write.csv(deg_full_list, "sn_vs_sc_enrichment_results.csv")
+    deg_dir <- "sn_vs_sc_enrichment_results/full_deg_by_cell_type"
+    dir.create(deg_dir, showWarnings = FALSE, recursive = TRUE)
+    deg_full_df <- dplyr::bind_rows(lapply(names(deg_full_list), function(ct) {
+      deg_ct <- as.data.frame(deg_full_list[[ct]])
+      if (nrow(deg_ct) == 0) return(NULL)
+      deg_ct$cell_type <- ct
+      safe_ct <- gsub("[^A-Za-z0-9._-]+", "_", ct)
+      write.csv(
+        deg_ct,
+        file.path(deg_dir, paste0(safe_ct, "_sn_vs_sc_enrichment_deg.csv")),
+        row.names = FALSE
+      )
+      deg_ct
+    }))
+    write.csv(deg_full_df, "sn_vs_sc_enrichment_results/sn_vs_sc_enrichment_full_deg.csv", row.names = FALSE)
 
     sn_sc_summary <- tibble(
       cell_type = character(),
@@ -320,24 +334,41 @@ LocationAnalysis <- function(...) {
 
 # 定义主函数
 monocle2_analysis <- function(seu_obj, qval=0.05, reduceDimensionMethod="DDRTree", output_path="", hub_genes="all"){
+    dir.create(output_path, recursive = TRUE, showWarnings = FALSE)
+    if (!all(c("cell_type", "Group") %in% colnames(seu_obj@meta.data))) {
+        stop("Monocle2 analysis requires metadata columns: cell_type and Group.")
+    }
     
     # seu_obj <- subset(seu_obj, subset = cell_type == cell_types)
     #Extract data, phenotype data, and feature data from the SeuratObject
-    data <- as.matrix(seu_obj@assays$RNA@data)
-    pd <- new('AnnotatedDataFrame', data = seu_obj@meta.data)
+    data <- seu_obj@assays$RNA@data
+    pd <- Biobase::AnnotatedDataFrame(data = seu_obj@meta.data)
     fData <- data.frame(gene_short_name = row.names(data), row.names = row.names(data))
-    fd <- new('AnnotatedDataFrame', data = fData)
+    fd <- Biobase::AnnotatedDataFrame(data = fData)
+
+    if (length(hub_genes) == 1 && tolower(hub_genes) == "all") {
+        genes_for_test <- rownames(data)
+    } else {
+        genes_for_test <- intersect(as.character(hub_genes), rownames(data))
+        missing_genes <- setdiff(as.character(hub_genes), rownames(data))
+        if (length(missing_genes) > 0) {
+            warning("Dropping hub_genes absent from Seurat object: ", paste(missing_genes, collapse = ", "))
+        }
+    }
+    if (length(genes_for_test) == 0) {
+        stop("No valid genes available for Monocle2 differentialGeneTest.")
+    }
 
     #构建S4对象，CellDataSet
-    seu_cds <- newCellDataSet(data,
+    seu_cds <- monocle::newCellDataSet(data,
                             phenoData = pd,
                             featureData = fd,
-                            expressionFamily = negbinomial.size())
+                            expressionFamily = monocle::negbinomial.size())
     cat("=========### Estimate the size factor for each cell \n")
-    seu_cds <- estimateSizeFactors(seu_cds) 
+    seu_cds <- monocle::estimateSizeFactors(seu_cds)
     
     cat("=========### Estimating the dispersion of gene expression \n")
-    seu_cds <- estimateDispersions(seu_cds)
+    seu_cds <- monocle::estimateDispersions(seu_cds)
     
     cat("=========### Differential gene analysis \n")
     # seu_cds <- detectGenes(seu_cds, min_expr = 0.1 )
@@ -346,13 +377,16 @@ monocle2_analysis <- function(seu_obj, qval=0.05, reduceDimensionMethod="DDRTree
     #                                     num_cells_expressed >= 5))
     # diff_genes <- VariableFeatures(seu_obj)
     
-    diff_test_res <- differentialGeneTest(seu_cds[hub_genes, ],
+    diff_test_res <- monocle::differentialGeneTest(seu_cds[genes_for_test, ],
                                           fullModelFormulaStr = "~ cell_type + Group", 
                                           cores=24)
     
     cat("=========### Choose Differential gene as ordering_genes")
     ordering_genes <- row.names (subset(diff_test_res, qval < qval)) ## 不要也写0.1 ，而是要写0.01。
-    seu_cds <- setOrderingFilter(seu_cds, ordering_genes)
+    if (length(ordering_genes) == 0) {
+        stop("No ordering genes passed qval threshold for Monocle2.")
+    }
+    seu_cds <- monocle::setOrderingFilter(seu_cds, ordering_genes)
     
     # disp_table <- dispersionTable(seu_cds)
     # ordering_genes_temp <- subset(disp_table, mean_expression >= 0.1) 
@@ -415,6 +449,16 @@ monocle2_analysis <- function(seu_obj, qval=0.05, reduceDimensionMethod="DDRTree
 DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR", lnc_name="AthLnc", gene_select_method="fraction"){
     dir.create(output_path, recursive = TRUE)
     DefaultAssay(object = seu_obj) <- "RNA"
+    if (!all(c("cell_type", "Group") %in% colnames(seu_obj@meta.data))) {
+        stop("WGCNA analysis requires metadata columns: cell_type and Group.")
+    }
+    if (length(cell_types) == 0) {
+        cell_types <- sort(unique(as.character(seu_obj$cell_type)))
+        message("No WGCNA cell_types specified; using all cell types: ", paste(cell_types, collapse = ", "))
+    }
+    if (gene_select_method == "variance") {
+        gene_select_method <- "variable"
+    }
     
     if(gene_select_method=="fraction"){
         seu_obj <- SetupForWGCNA(
@@ -579,8 +623,8 @@ DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR",
     p4 <- ModuleRadarPlot(
         seu_obj,
         group.by = 'cluster',
-        barcodes = seu_obj@meta.data %>% 
-            subset(cell_type == cell_types) %>% 
+        barcodes = seu_obj@meta.data %>%
+            subset(cell_type %in% cell_types) %>%
             rownames(),
         axis.label.size=4,
         grid.label.size=4
