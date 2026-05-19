@@ -1,11 +1,26 @@
 ########################################***snRNA/scRNA enrichment analysis***########################################
 
+normalize_dash_chars <- function(x) {
+    gsub("[\u2010\u2011\u2012\u2013\u2014\u2015\u2212]", "-", x, perl = TRUE)
+}
+
+get_monocle_negbinomial_family <- function() {
+    if (requireNamespace("VGAM", quietly = TRUE)) {
+        return(VGAM::negbinomial.size())
+    }
+    if (exists("negbinomial.size", mode = "function")) {
+        return(negbinomial.size())
+    }
+    stop("Cannot find negbinomial.size(). Please ensure VGAM/monocle dependencies are available.")
+}
+
 SnScEnrichmentAnalysis <- function(seu_obj, LOG2FC_THRESH=0.25, PADJ_THRESH=0.05, output_path="./", lncRNA_name="scLncR"){
     dir.create(output_path, recursive = TRUE, showWarnings = FALSE)
     setwd(output_path)
     if (!("cell_type" %in% colnames(seu_obj@meta.data))) {
       seu_obj$cell_type <- as.character(seu_obj$seurat_clusters)
     }
+    seu_obj$cell_type <- normalize_dash_chars(as.character(seu_obj$cell_type))
 
     cell_types <- sort(unique(seu_obj$cell_type))
 
@@ -338,6 +353,7 @@ monocle2_analysis <- function(seu_obj, qval=0.05, reduceDimensionMethod="DDRTree
     if (!all(c("cell_type", "Group") %in% colnames(seu_obj@meta.data))) {
         stop("Monocle2 analysis requires metadata columns: cell_type and Group.")
     }
+    seu_obj$cell_type <- normalize_dash_chars(as.character(seu_obj$cell_type))
     
     # seu_obj <- subset(seu_obj, subset = cell_type == cell_types)
     #Extract data, phenotype data, and feature data from the SeuratObject
@@ -363,7 +379,7 @@ monocle2_analysis <- function(seu_obj, qval=0.05, reduceDimensionMethod="DDRTree
     seu_cds <- monocle::newCellDataSet(data,
                             phenoData = pd,
                             featureData = fd,
-                            expressionFamily = monocle::negbinomial.size())
+                            expressionFamily = get_monocle_negbinomial_family())
     cat("=========### Estimate the size factor for each cell \n")
     seu_cds <- monocle::estimateSizeFactors(seu_cds)
     
@@ -434,13 +450,8 @@ monocle2_analysis <- function(seu_obj, qval=0.05, reduceDimensionMethod="DDRTree
     ggsave(p4, file=paste0(output_path, "/complex_cell_trajectory.pdf"), dpi=600)
     saveRDS(seu_cds, file=paste0(output_path, "/seu_cds.rds"))
 
-    plt_lnc <- 
-    ppp <- plot_genes_jitter(seu_cds[plt_lnc,],
-                  grouping = "Group",
-                  color_by = "cell_type",
-                  nrow= 2,
-                  ncol = NULL,
-                  plot_trend = TRUE)
+    # Gene-level pseudotime plots can be added by users with selected genes.
+    # The legacy code attempted to plot an undefined `plt_lnc` object here.
     return(seu_cds)
 }
 ########################################***WGCNA Analysis***########################################
@@ -452,6 +463,9 @@ DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR",
     if (!all(c("cell_type", "Group") %in% colnames(seu_obj@meta.data))) {
         stop("WGCNA analysis requires metadata columns: cell_type and Group.")
     }
+    seu_obj$cell_type <- normalize_dash_chars(as.character(seu_obj$cell_type))
+    cell_types <- normalize_dash_chars(as.character(cell_types))
+    cell_types <- unique(cell_types[nzchar(cell_types)])
     if (length(cell_types) == 0) {
         cell_types <- sort(unique(as.character(seu_obj$cell_type)))
         message("No WGCNA cell_types specified; using all cell types: ", paste(cell_types, collapse = ", "))
