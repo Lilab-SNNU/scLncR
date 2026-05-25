@@ -190,16 +190,8 @@ scLncR dataProcess -c R/confings/config_dataProcess.yaml
 
 This step creates a Seurat object, performs QC, normalization, feature selection, dimensional reduction, clustering, and optional annotation.
 
-#### Step 4. Normalization benchmarking
 
-```text
-Rscript scripts/run_normalization_benchmark.R \
-  -c R/confings/config_normalization_benchmark.yaml
-```
-
-This independent script compares normalization strategies and evaluates the stability of lncRNA-associated signals. It is intended for sensitivity analysis and does not prove that one normalization method is universally superior.
-
-#### Step 5. Downstream function analysis
+#### Step 4. Downstream function analysis
 
 ```text
 scLncR function -c R/confings/config_function.yaml
@@ -295,7 +287,6 @@ Users should edit paths, project name, lncRNA prefix, genome FASTA, GTF annotati
 | 10x count | Cell Ranger `filtered_feature_bc_matrix` |
 | Smart-seq2 count | `featurecounts/smartseq2_count_matrix.tsv` |
 | dataProcess | `data_preprocess/preprocessed_result.rds`, `data_annotation/anno_result.rds` |
-| normalization benchmark | `normalization_benchmark_report.md`, marker and stability tables |
 | function | enrichment, trajectory, and WGCNA results |
 
 
