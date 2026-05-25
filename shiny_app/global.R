@@ -21,6 +21,19 @@ scLncR_load_shiny_packages()
   x
 }
 
+safe_include_markdown <- function(path) {
+  if (requireNamespace("markdown", quietly = TRUE)) {
+    return(includeMarkdown(path))
+  }
+  if (!file.exists(path)) {
+    return(tags$div(class = "alert alert-warning", paste("Documentation file not found:", path)))
+  }
+  tags$pre(
+    style = "white-space: pre-wrap; background: #fff; border: 0; font-family: inherit;",
+    paste(readLines(path, warn = FALSE), collapse = "\n")
+  )
+}
+
 # 获取scLncR安装信息
 get_scLncR_info <- function() {
   scLncR_path <- Sys.which("scLncR")

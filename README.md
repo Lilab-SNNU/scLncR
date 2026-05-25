@@ -318,7 +318,7 @@ shiny::runApp()
 ### Method 2. Open Shiny from command line
 
 ```shell
-$ scLCnR shiny
+$ scLncR shiny
 ### Then Open the port print in shell,such as 
 Setting up environment...
 Found scLncR at: opt/scLncR/scLncR

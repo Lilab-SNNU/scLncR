@@ -7,11 +7,20 @@ cat("========================================\n")
 cat("   scLncR Shiny GUI\n")
 cat("========================================\n\n")
 
-# 设置工作目录
-script_dir <- dirname(sys.frame(1)$ofile)
-if (length(script_dir) == 0) {
-  script_dir <- getwd()
+get_script_dir <- function() {
+  file_arg <- grep("^--file=", commandArgs(trailingOnly = FALSE), value = TRUE)
+  if (length(file_arg) > 0) {
+    return(dirname(normalizePath(sub("^--file=", "", file_arg[1]), mustWork = FALSE)))
+  }
+  script_path <- tryCatch(sys.frame(1)$ofile, error = function(e) NULL)
+  if (!is.null(script_path) && nzchar(script_path)) {
+    return(dirname(normalizePath(script_path, mustWork = FALSE)))
+  }
+  getwd()
 }
+
+# 设置工作目录
+script_dir <- get_script_dir()
 
 # 尝试找到scLncR安装目录
 find_scLncR_home <- function() {

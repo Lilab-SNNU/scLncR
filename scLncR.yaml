@@ -340,10 +340,12 @@ dependencies:
   - r-leidenbase=0.1.32=r43he61314c_0
   - r-lifecycle=1.0.4=r43hc72bb7e_1
   - r-listenv=0.9.1=r43hc72bb7e_1
+  - r-litedown=0.7=r43hc72bb7e_0
   - r-lmtest=0.9_40=r43hbcb9c34_3
   - r-locfit=1.5_9.12=r43h2b5f3a1_0
   - r-lubridate=1.9.3=r43h76d94ec_0
   - r-magrittr=2.0.3=r43hb1dbf0f_3
+  - r-markdown=2.0=r43hc72bb7e_0
   - r-mass=7.3_60.0.1=r43hb1dbf0f_1
   - r-matrix=1.6_5=r43he966344_1
   - r-matrixstats=1.5.0=r43h2b5f3a1_0

@@ -753,7 +753,7 @@ ui <- dashboardPage(
             title = "scLncR Documentation",
             status = "info",
             solidHeader = TRUE,
-            includeMarkdown("www/overview.md")
+            safe_include_markdown("www/overview.md")
           )
         )
       ),
