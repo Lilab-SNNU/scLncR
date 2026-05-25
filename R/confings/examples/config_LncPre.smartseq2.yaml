@@ -2,6 +2,9 @@
 # scLncR - Smart-seq2 prelnc example
 # =============================================================================
 
+# -----------------------------
+# Input and output
+# -----------------------------
 samples_dirs: "/home/data/scLncR/data/smart-seq2/SRP065494/"
 samples_info: "/home/data/scLncR/data/smart-seq2/SRP065494/samples_info.txt"
 project_name: "scLncR_smartseq2"
@@ -11,6 +14,9 @@ gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
 lncrna_name: "AthLnc"
 threads: 24
 
+# -----------------------------
+# Raw FASTQ-first input mode
+# -----------------------------
 input_type: "fastq"
 sequencing_platform: "smartseq2"
 read_layout: "single"
@@ -20,6 +26,9 @@ r1_pattern: "_R1_"
 r2_pattern: "_R2_"
 i1_pattern: "_I1_"
 
+# -----------------------------
+# Discovery alignment and assembly
+# -----------------------------
 aligner_for_discovery: "hisat2"
 assembler: "stringtie"
 strandness: "unstranded"
@@ -29,10 +38,16 @@ min_mapping_quality: 30
 rebuild_hisat2_index: false
 hisat2_index_prefix: ""
 
+# -----------------------------
+# Runtime controls
+# -----------------------------
 keep_intermediate: true
 dry_run: false
 sample_limit: 0
 include_samples: []
 
+# -----------------------------
+# Legacy compatibility
+# -----------------------------
 prelnc_mode: "fastq_helper"
 bam_manifest: ""

@@ -39,6 +39,15 @@ find_scLncR_home <- function() {
   return(NULL)
 }
 
+load_shiny_dependencies <- function(scLncR_home) {
+  loader <- file.path(scLncR_home, "R", "modules", "scLncR_load_package.R")
+  if (!file.exists(loader)) {
+    stop("Package loader not found: ", loader)
+  }
+  source(loader, local = TRUE)
+  scLncR_load_shiny_packages()
+}
+
 # 主函数
 main <- function() {
   # 查找scLncR
@@ -55,6 +64,7 @@ main <- function() {
   
   # 设置环境变量
   Sys.setenv(SC_LNCR_HOME = scLncR_home)
+  load_shiny_dependencies(scLncR_home)
   
   # 切换到shiny_app目录
   shiny_dir <- file.path(scLncR_home, "shiny_app")
@@ -67,16 +77,6 @@ main <- function() {
   setwd(shiny_dir)
   
   cat("Loading required packages...\n")
-  required_packages <- c("shiny", "shinydashboard", "shinyjs", "yaml", 
-                         "shinyWidgets", "shinyFiles", "DT")
-  
-  for (pkg in required_packages) {
-    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-      cat(sprintf("Installing %s...\n", pkg))
-      install.packages(pkg, repos = "https://cloud.r-project.org")
-      library(pkg, character.only = TRUE)
-    }
-  }
   
   cat("\n")
   cat("Server starting...\n")

@@ -38,6 +38,10 @@ if (length(file_arg) > 0) {
   script_path <- normalizePath("scripts/run_normalization_benchmark.R", mustWork = FALSE)
 }
 repo_root <- normalizePath(file.path(dirname(script_path), ".."), mustWork = FALSE)
+package_loader <- file.path(repo_root, "R", "modules", "scLncR_load_package.R")
+if (file.exists(package_loader)) {
+  source(package_loader, local = TRUE)
+}
 module_file <- file.path(repo_root, "R", "modules", "scLncR_normalization_benchmark.R")
 if (!file.exists(module_file)) {
   stop("Module file not found: ", module_file)
@@ -45,5 +49,8 @@ if (!file.exists(module_file)) {
 source(module_file, local = TRUE)
 
 cfg <- read_normalization_benchmark_config(config_path)
+if (exists("scLncR_load_normalization_benchmark_packages", mode = "function")) {
+  scLncR_load_normalization_benchmark_packages(cfg$strategies)
+}
 run_normalization_benchmark(cfg)
 cat("Normalization benchmark completed.\n")

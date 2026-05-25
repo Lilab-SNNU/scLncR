@@ -8,7 +8,7 @@
 
 load_LncExplore_config <- function(config_path) {
   if (!requireNamespace("yaml", quietly = TRUE)) {
-    stop("Package 'yaml' is required. Install with: install.packages('yaml')")
+    stop("Package 'yaml' is required. Install it in the active scLncR R/conda environment.")
   }
   if (!file.exists(config_path)) stop("Config file not found: ", config_path)
   

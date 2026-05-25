@@ -7,17 +7,6 @@ cat("========================================\n")
 cat("   scLncR Shiny GUI Launcher\n")
 cat("========================================\n\n")
 
-# 检查并安装必要的包
-required_packages <- c("shiny", "shinydashboard", "shinyjs", "yaml", 
-                       "shinyWidgets", "shinyFiles", "shinyalert", "DT")
-
-for (pkg in required_packages) {
-  if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-    cat(sprintf("Installing %s...\n", pkg))
-    install.packages(pkg, repos = "https://cloud.r-project.org")
-  }
-}
-
 # 获取scLncR安装目录
 get_scLncR_home <- function() {
   # 方法1: 从系统PATH中查找
@@ -53,6 +42,15 @@ get_scLncR_home <- function() {
   return(normalizePath(install_dir))
 }
 
+load_shiny_dependencies <- function(scLncR_home) {
+  loader <- file.path(scLncR_home, "R", "modules", "scLncR_load_package.R")
+  if (!file.exists(loader)) {
+    stop("Package loader not found: ", loader)
+  }
+  source(loader, local = TRUE)
+  scLncR_load_shiny_packages()
+}
+
 # 主启动函数
 launch_shiny <- function() {
   cat("Setting up environment...\n")
@@ -62,6 +60,7 @@ launch_shiny <- function() {
   
   # 设置环境变量
   Sys.setenv(SC_LNCR_HOME = scLncR_home)
+  load_shiny_dependencies(scLncR_home)
   
   # 切换到shiny_app目录
   shiny_dir <- file.path(scLncR_home, "shiny_app")

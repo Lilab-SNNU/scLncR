@@ -1,28 +1,39 @@
 # =============================================================================
-# scLncR - raw FASTQ quality control configuration
+# scLncR - raw FASTQ QC configuration
 # =============================================================================
 
+# -----------------------------
+# Input and output
+# -----------------------------
 input_dir: "/home/data/scLncR/data/paper_test"
 output_dir: "/home/data/scLncR/paper/paper_case/step0_qc"
-file_pattern: "*.fastq.gz"
-recursive: false
+file_pattern: "*.fastq.gz"             # FASTQ filename pattern
+recursive: false                       # search input_dir recursively
 
+# -----------------------------
+# Runtime controls
+# -----------------------------
 threads: 8
+dry_run: false                         # preview commands without running FastQC/MultiQC
+sample_limit: 0                        # 0 means no limit
+include_files: []                      # optional FASTQ basenames to include
 
+# -----------------------------
+# FastQC settings
+# -----------------------------
 fastqc:
   enabled: true
-  extract: true
+  extract: true                        # extract *_fastqc.zip directories
   nogroup: false
-  contaminants: ""
-  adapters: ""
+  contaminants: ""                     # optional contaminants file
+  adapters: ""                         # optional adapters file
   extra_args: ""
 
+# -----------------------------
+# MultiQC settings
+# -----------------------------
 multiqc:
   enabled: true
   title: "scLncR raw FASTQ QC report"
   filename: "multiqc_report.html"
   extra_args: ""
-
-dry_run: false
-sample_limit: 0
-include_files: []

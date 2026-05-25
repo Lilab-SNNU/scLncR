@@ -1,13 +1,8 @@
 # shiny_app/app.R
-library(shiny)
-library(shinyjs)
-library(shinydashboard)
-library(shinyWidgets)
-library(yaml)
-library(DT)
-library(shinyFiles)
 
-source("global.R")
+if (!exists(".sclncr_shiny_global_loaded", inherits = TRUE)) {
+  source("global.R")
+}
 
 # UI界面 - 根据您的配置文件重新设计
 ui <- dashboardPage(

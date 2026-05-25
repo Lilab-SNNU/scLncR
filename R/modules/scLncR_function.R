@@ -611,8 +611,7 @@ DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR",
 
     ##########**********Compute hub gene signature scores
     # compute gene scoring for the top 25 hub genes by kME for each module
-    # with UCell method
-    library(UCell)
+    # with UCell method. UCell is loaded by scLncR_load_function_packages().
     seu_obj <- ModuleExprScore(
         seu_obj,
         n_genes = 25,
@@ -676,7 +675,7 @@ DO_WGCNA <- function(seu_obj, output_path="", cell_types=c(), pro_name="scLncR",
 run_function <- function(args, script_dir) {
   # Load required packages
   if (!requireNamespace("optparse", quietly = TRUE)) {
-    stop("Package 'optparse' is required. Install with: install.packages('optparse')")
+    stop("Package 'optparse' is required. Install it in the active scLncR R/conda environment.")
   }
   
   # -----------------------------
@@ -729,6 +728,9 @@ run_function <- function(args, script_dir) {
   }
   
   cfg <- load_LncExplore_config(config_path)
+  if (exists("scLncR_load_function_packages", mode = "function")) {
+    scLncR_load_function_packages(cfg$.run_modules)
+  }
   
   # -----------------------------
   # 3. Load input Seurat object

@@ -1,28 +1,45 @@
 # =============================================================================
-# scLncR - Normalization Benchmark Configuration
-# Purpose: Compare normalization strategies and assess lncRNA signal stability.
+# scLncR - normalization benchmark configuration
 # =============================================================================
 
+# -----------------------------
+# Input and output
+# -----------------------------
+# input_seurat should point to a Seurat RDS from dataProcess, typically:
+#   data_preprocess/preprocessed_result.rds
+# or, after annotation:
+#   data_annotation/anno_result.rds
 input_seurat: "path/to/seurat_object.rds"
 output_dir: "normalization_benchmark_results"
-lnc_name: "AthLnc"
+lnc_name: "AthLnc"                      # lncRNA gene prefix
 
-group_by: "cell_type"
-condition_col: "Group"
-cluster_col: "seurat_clusters"
+# -----------------------------
+# Metadata columns
+# -----------------------------
+group_by: "cell_type"                   # primary grouping column for markers
+condition_col: "Group"                  # optional condition column
+cluster_col: "seurat_clusters"          # fallback grouping column
 
+# -----------------------------
+# Normalization strategies
+# -----------------------------
 strategies: ["joint_lognormalize", "separate_lognormalize"]
+random_seed: 1234
+save_normalized_objects: true
+
+# -----------------------------
+# Marker detection
+# -----------------------------
 marker_test: "wilcox"
 logfc_threshold: 0.25
 min_pct: 0.1
 padj_threshold: 0.05
 top_n_markers: 50
-random_seed: 1234
 
-# Large Seurat objects can fail when future exports dense matrices to workers.
-# The default reviewer-oriented benchmark runs sequentially and compares the
-# core question: joint vs separate LogNormalize.
+# -----------------------------
+# Large object controls
+# -----------------------------
+# Sequential execution avoids future exporting large dense matrices to workers.
 future_plan: "sequential"
 future_globals_max_size_gb: 50
 max_cells_per_ident: 1000
-save_normalized_objects: true

@@ -1,27 +1,4 @@
 #################################################***Part3 Single Cell Data PreProcess***##################################################
-suppressPackageStartupMessages({
-    suppressWarnings({
-        suppressMessages({
-            library(optparse)
-            library(stringr)
-            library(gridExtra) 
-            library(psych)
-            library(pheatmap)
-            library(Seurat)
-            library(dplyr)
-            library(ggsci)
-            library(tidyverse)
-            library(patchwork)
-            library(ggplot2)
-            library(reshape2)
-            library(scMayoMap)
-            library(shiny)
-            library(shinyjs)
-            library(SingleR)
-            library(ggrepel)
-        })
-    })
-})
 
 ########################################*** Data load and Create Seu_obj***########################################
 
@@ -566,7 +543,7 @@ cell_type_stats <- function(seu_obj, colour=colour, output_dir=""){
 run_dataProcess <- function(user_args, script_dir) {
     # Load required package
     if (!requireNamespace("optparse", quietly = TRUE)) {
-    stop("Package 'optparse' is required. Please install it: install.packages('optparse')")
+    stop("Package 'optparse' is required. Install it in the active scLncR R/conda environment.")
     }
 
     # Define option list
@@ -603,6 +580,9 @@ run_dataProcess <- function(user_args, script_dir) {
 
     # Load and validate config
     cfg <- load_dataProcess_config(config_file)
+    if (exists("scLncR_load_dataProcess_packages", mode = "function")) {
+        scLncR_load_dataProcess_packages(cfg$anno_method)
+    }
 
     # Extract parameters (optional: you can just pass cfg directly to functions)
     input_format <- cfg$input_format

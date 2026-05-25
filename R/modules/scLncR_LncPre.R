@@ -1,12 +1,3 @@
-suppressPackageStartupMessages({
-  suppressWarnings({
-    suppressMessages({
-      library(optparse)
-      library(yaml)
-    })
-  })
-})
-
 #' Null-coalescing helper
 #'
 #' @param x Candidate value.

@@ -1,9 +1,9 @@
 # =============================================================================
-# scLncR - prelnc configuration (raw FASTQ-first, technology-aware)
+# scLncR - prelnc configuration
 # =============================================================================
 
 # -----------------------------
-# Core inputs and outputs
+# Input and output
 # -----------------------------
 samples_dirs: "/home/data/scLncR/data/paper_test"
 samples_info: "/home/data/scLncR/data/paper_test/samples_info.txt"
@@ -11,16 +11,17 @@ project_name: "scLncR"
 output_path: "/home/data/scLncR/paper/paper_case/step1_prelnc"
 genome_file: "/home/data/scLncR/genome/TAIR10.fa"
 gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
-lncrna_name: "AthLnc"
+lncrna_name: "AthLnc"                  # prefix assigned to predicted lncRNAs
 threads: 24
 
 # -----------------------------
-# Raw FASTQ-first mode
+# Raw FASTQ-first input mode
 # -----------------------------
-input_type: "fastq"               # main interface for this module
-sequencing_platform: "10x"        # 10x | smartseq2 | dropseq | generic
-read_layout: "auto"               # auto | single | paired
+input_type: "fastq"                    # current user-facing input mode
+sequencing_platform: "10x"             # 10x | smartseq2 | dropseq | generic
+read_layout: "auto"                    # auto | single | paired
 
+# 10x mode uses R2 cDNA reads for candidate transcript evidence.
 fastq_sample_regex: "^(.*?)_S\\d+_L\\d+_([IR][12])_\\d+\\.fastq\\.gz$"
 r1_pattern: "_R1_"
 r2_pattern: "_R2_"
@@ -29,9 +30,9 @@ i1_pattern: "_I1_"
 # -----------------------------
 # Discovery alignment and assembly
 # -----------------------------
-aligner_for_discovery: "hisat2"
-assembler: "stringtie"
-strandness: "RF"                  # RF | FR | unstranded
+aligner_for_discovery: "hisat2"        # currently supported: hisat2
+assembler: "stringtie"                 # currently supported: stringtie
+strandness: "RF"                       # RF | FR | unstranded
 min_transcript_length: 200
 gffcompare_classes: ["i", "u", "x", "o"]
 min_mapping_quality: 30
@@ -42,12 +43,13 @@ hisat2_index_prefix: ""
 # Runtime controls
 # -----------------------------
 keep_intermediate: true
-dry_run: true
-sample_limit: 0                   # 0 means no limit
+dry_run: true                          # preview manifests and commands only
+sample_limit: 0                        # 0 means no limit
 include_samples: []
 
 # -----------------------------
-# Legacy compatibility fields (ignored in raw FASTQ-first mode)
+# Legacy compatibility
 # -----------------------------
+# These fields are retained for old configs; raw FASTQ remains the main input.
 prelnc_mode: "fastq_helper"
 bam_manifest: ""

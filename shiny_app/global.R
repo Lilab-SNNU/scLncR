@@ -1,30 +1,20 @@
 # shiny_app/global.R
 # 全局设置和工具函数
 
-# 加载必要的库
-library(shiny)
-library(shinydashboard)
-library(shinyjs)
-library(yaml)
-library(shinyWidgets)
-library(shinyFiles)
-library(DT)
-library(fs)
-
-# 检查并安装缺少的包
-ensure_packages <- function(packages) {
-  for (pkg in packages) {
-    if (!require(pkg, character.only = TRUE, quietly = TRUE)) {
-      install.packages(pkg, repos = "https://cloud.r-project.org")
-      library(pkg, character.only = TRUE)
-    }
-  }
+resolve_scLncR_home <- function() {
+  env_home <- Sys.getenv("SC_LNCR_HOME", unset = "")
+  if (nzchar(env_home) && dir.exists(env_home)) return(normalizePath(env_home))
+  normalizePath(file.path(getwd(), ".."), mustWork = FALSE)
 }
 
-# 确保所有必要的包都可用
-required_packages <- c("shiny", "shinydashboard", "shinyjs", "yaml", 
-                       "shinyWidgets", "shinyFiles", "DT", "fs")
-ensure_packages(required_packages)
+scLncR_home <- resolve_scLncR_home()
+package_loader <- file.path(scLncR_home, "R", "modules", "scLncR_load_package.R")
+if (!file.exists(package_loader)) {
+  stop("Package loader not found: ", package_loader)
+}
+source(package_loader, local = TRUE)
+scLncR_load_shiny_packages()
+.sclncr_shiny_global_loaded <- TRUE
 
 `%||%` <- function(x, y) {
   if (is.null(x) || length(x) == 0) return(y)

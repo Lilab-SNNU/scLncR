@@ -1,36 +1,45 @@
 # =============================================================================
-# scLncR - Configuration for LncExplore Module
-# Description: Parameters for snRNA/scRNA Enrichment Analysis, Monocle2 Trajectory, and WGCNA
+# scLncR - function analysis configuration
 # =============================================================================
 
-# Global input (REQUIRED)
-input_seurat: "path/to/integrated_seurat.rds"  # Path to preprocessed Seurat object
-run_modules: ["location", "monocle2", "wgcna"]  # Modules need analysis (empty list = all modules)
+# -----------------------------
+# Global input and module selection
+# -----------------------------
+# input_seurat should point to a Seurat RDS from dataProcess, typically:
+#   data_preprocess/preprocessed_result.rds
+# or, after annotation:
+#   data_annotation/anno_result.rds
+input_seurat: "path/to/integrated_seurat.rds"
 
-# =============================================================================
-# snRNA/scRNA Enrichment Analysis Parameters
-# =============================================================================
+# Supported module keys: location | monocle2 | wgcna
+# Note: location is kept as a backward-compatible internal key. It runs
+# snRNA/scRNA enrichment analysis, not definitive subcellular localization.
+run_modules: ["location", "monocle2", "wgcna"]
+
+# -----------------------------
+# snRNA/scRNA enrichment analysis
+# -----------------------------
 location:
-  LOG2FC_THRESH: 0.25      # Numeric: Log2FC threshold for differential expression
-  PADJ_THRESH: 0.05        # Numeric: Adjusted p-value threshold (0 < x <= 1)
-  output_path: "./sn_sc_enrichment_results"  # String: Output directory for snRNA/scRNA enrichment analysis
-  lncRNA_name: "scLncR"    # String: Prefix for lncRNA naming (letters, digits, hyphens only)
+  LOG2FC_THRESH: 0.25                    # log2 fold-change threshold
+  PADJ_THRESH: 0.05                      # adjusted p-value threshold
+  output_path: "./sn_sc_enrichment_results"
+  lncRNA_name: "scLncR"                  # lncRNA prefix; letters, digits, hyphens
 
-# =============================================================================
-# Monocle2 Trajectory Analysis Parameters
-# =============================================================================
+# -----------------------------
+# Monocle2 trajectory analysis
+# -----------------------------
 monocle2:
-  qval: 0.05                          # Numeric: Q-value threshold for DE genes (0 < x <= 1)
-  reduceDimensionMethod: "DDRTree"    # String: Dimension reduction method ("DDRTree", "ICA", "tSNE")
-  output_path: "./monocle2_results"   # String: Output directory
-  hub_genes: "all"                    # String: "all" or comma-separated gene list (e.g., "SOX2,POU5F1")
+  qval: 0.05                             # q-value threshold for ordering genes
+  reduceDimensionMethod: "DDRTree"       # DDRTree | ICA | tSNE
+  output_path: "./monocle2_results"
+  hub_genes: "all"                       # all or comma-separated gene IDs
 
-# =============================================================================
-# WGCNA Co-expression Network Parameters
-# =============================================================================
+# -----------------------------
+# WGCNA co-expression network analysis
+# -----------------------------
 wgcna:
-  output_path: "./wgcna_results"      # String: Output directory
-  cell_types: ["T_cell", "B_cell"]    # List: Cell types to include (empty list = all types)
-  pro_name: "scLncR"                  # String: Project prefix for module naming
-  lnc_name: "AthLnc"                  # String: lncRNA prefix filter (empty = no filter)
-  gene_select_method: "fraction"      # String: "fraction" (top fraction) or "variance" (highly variable)
+  output_path: "./wgcna_results"
+  cell_types: ["T_cell", "B_cell"]       # empty list means all cell types
+  pro_name: "scLncR"                     # project prefix for network naming
+  lnc_name: "AthLnc"                     # lncRNA prefix used by dataProcess
+  gene_select_method: "fraction"         # fraction | variance

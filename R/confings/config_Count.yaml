@@ -1,37 +1,52 @@
 # =============================================================================
-# scLncR - count configuration (raw FASTQ-first, technology-aware)
+# scLncR - count configuration
 # =============================================================================
 
-sequencing_platform: "10x"        # 10x | smartseq2 | dropseq | generic
-count_engine: "cellranger"        # cellranger | featurecounts | starsolo
+# -----------------------------
+# Platform and engine
+# -----------------------------
+sequencing_platform: "10x"             # 10x | smartseq2 | dropseq | generic
+count_engine: "cellranger"             # cellranger | featurecounts | starsolo
 
+# -----------------------------
+# Input and output
+# -----------------------------
 samples_dirs: "/home/data/scLncR/data/paper_test"
 samples_info: "/home/data/scLncR/data/paper_test/samples_info.txt"
+project_name: "scLncR"
+output_path: "/home/data/scLncR/paper/paper_case/step2_count"
+threads: 24
 
+# -----------------------------
+# Reference files
+# -----------------------------
 genome_file: "/home/data/scLncR/genome/TAIR10.fa"
 known_gtf: "/home/data/scLncR/genome/Araport11_current.gtf"
 lnc_gtf: "/home/data/scLncR/paper/paper_case/step1_prelnc/final_lnc.gtf"
 combined_gtf: "/home/data/scLncR/paper/paper_case/step1_prelnc/reference/combined_mRNA_lncRNA.gtf"
 
-project_name: "scLncR"
-output_path: "/home/data/scLncR/paper/paper_case/step2_count"
-threads: 24
-
-# 10x FASTQ parsing
+# -----------------------------
+# FASTQ parsing
+# -----------------------------
 fastq_sample_regex: "^(.*?)_S\\d+_L\\d+_([IR][12])_\\d+\\.fastq\\.gz$"
 r1_pattern: "_R1_"
 r2_pattern: "_R2_"
 i1_pattern: "_I1_"
+single_pattern: ".fastq.gz"            # Smart-seq2/generic single-end FASTQ pattern
+read_layout: "auto"                    # auto | paired | single
 
-# Smart-seq2 / generic FASTQ parsing and alignment
-read_layout: "auto"                  # auto | paired | single
-single_pattern: ".fastq.gz"
-aligner: "hisat2"
+# -----------------------------
+# Smart-seq2/generic alignment
+# -----------------------------
+aligner: "hisat2"                      # currently supported: hisat2
 hisat2_index_prefix: ""
 rebuild_hisat2_index: false
-strandness: "unstranded"             # unstranded | FR | RF
+strandness: "unstranded"               # unstranded | FR | RF
 min_mapping_quality: 10
 
+# -----------------------------
+# featureCounts settings
+# -----------------------------
 featurecounts:
   feature_type: "exon"
   attribute_type: "gene_id"
@@ -39,10 +54,40 @@ featurecounts:
   allow_multi_overlap: false
   extra_args: ""
 
+# -----------------------------
+# Optional StringTie abundance
+# -----------------------------
 stringtie_abundance:
   enabled: false
   extra_args: ""
 
+# -----------------------------
+# Platform notes
+# -----------------------------
+# The loader uses the top-level fields above. These notes document intended
+# platform-specific combinations without changing runtime behavior.
+platform_params:
+  tenx:
+    sequencing_platform: "10x"
+    count_engine: "cellranger"
+    note: "Build Cell Ranger reference from combined_gtf and run cellranger count from raw FASTQ."
+  smartseq2:
+    sequencing_platform: "smartseq2"
+    count_engine: "featurecounts"
+    read_layout: "single"
+    note: "Run HISAT2 + samtools + featureCounts using combined_gtf."
+  dropseq:
+    sequencing_platform: "dropseq"
+    count_engine: "starsolo"
+    note: "Experimental placeholder; full UMI-aware quantification is planned."
+  generic:
+    sequencing_platform: "generic"
+    count_engine: "featurecounts"
+    note: "Experimental placeholder for non-10x/non-Smart-seq2 FASTQ."
+
+# -----------------------------
+# Runtime controls
+# -----------------------------
 dry_run: true
-sample_limit: 0
+sample_limit: 0                        # 0 means no limit
 include_samples: []

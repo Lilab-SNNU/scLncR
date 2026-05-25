@@ -9,7 +9,7 @@
 load_dataProcess_config <- function(config_path) {
   # Load required packages
   if (!requireNamespace("yaml", quietly = TRUE)) {
-    stop("Package 'yaml' is required but not installed. Please run: install.packages('yaml')")
+    stop("Package 'yaml' is required. Install it in the active scLncR R/conda environment.")
   }
 
   # Check if config file exists

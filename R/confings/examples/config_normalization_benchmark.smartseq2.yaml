@@ -2,23 +2,39 @@
 # scLncR - Smart-seq2 normalization benchmark example
 # =============================================================================
 
+# -----------------------------
+# Input and output
+# -----------------------------
 input_seurat: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step3_dataProcess/data_preprocess/preprocessed_result.rds"
 output_dir: "/home/data/scLncR/scLncR_new/outputs/smartseq2_normalization_benchmark"
 lnc_name: "AthLnc"
 
+# -----------------------------
+# Metadata columns
+# -----------------------------
 group_by: "seurat_clusters"
 condition_col: "Group"
 cluster_col: "seurat_clusters"
 
+# -----------------------------
+# Normalization strategies
+# -----------------------------
 strategies: ["joint_lognormalize", "separate_lognormalize"]
+random_seed: 1234
+save_normalized_objects: true
+
+# -----------------------------
+# Marker detection
+# -----------------------------
 marker_test: "wilcox"
 logfc_threshold: 0.25
 min_pct: 0.1
 padj_threshold: 0.05
 top_n_markers: 50
-random_seed: 1234
 
+# -----------------------------
+# Large object controls
+# -----------------------------
 future_plan: "sequential"
 future_globals_max_size_gb: 50
 max_cells_per_ident: 1000
-save_normalized_objects: true
