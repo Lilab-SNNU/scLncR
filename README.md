@@ -12,7 +12,6 @@ scLncR supports raw FASTQ quality control, candidate lncRNA prediction, lncRNA-a
 
 ```text
 git clone https://github.com/Lilab-SNNU/scLncR.git
-cd scLncR
 ```
 
 ---
@@ -24,6 +23,7 @@ cd scLncR
 You can configure the scLncR environment using conda.
 
 ```text
+cd scLncR
 conda env create -f scLncR.yaml
 conda activate scLncR
 
