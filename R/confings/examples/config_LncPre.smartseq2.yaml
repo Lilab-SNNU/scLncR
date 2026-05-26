@@ -5,12 +5,13 @@
 # -----------------------------
 # Input and output
 # -----------------------------
-samples_dirs: "/home/data/scLncR/data/smart-seq2/SRP065494/"
-samples_info: "/home/data/scLncR/data/smart-seq2/SRP065494/samples_info.txt"
+# Replace /path/to/... with your local or server paths before running.
+samples_dirs: "/path/to/smartseq2_fastq"
+samples_info: "/path/to/smartseq2_fastq/samples_info.txt"
 project_name: "scLncR_smartseq2"
-output_path: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step1_prelnc"
-genome_file: "/home/data/scLncR/genome/TAIR10.fa"
-gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
+output_path: "/path/to/output/smartseq2_step1_prelnc"
+genome_file: "/path/to/reference/genome.fa"
+gtf_file: "/path/to/reference/annotation.gtf"
 lncrna_name: "AthLnc"
 threads: 24
 

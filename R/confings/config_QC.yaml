@@ -5,8 +5,9 @@
 # -----------------------------
 # Input and output
 # -----------------------------
-input_dir: "/home/data/scLncR/data/paper_test"
-output_dir: "/home/data/scLncR/paper/paper_case/step0_qc"
+# Replace /path/to/... with your local or server paths before running.
+input_dir: "/path/to/raw_fastq"
+output_dir: "/path/to/output/step0_qc"
 file_pattern: "*.fastq.gz"             # FASTQ filename pattern
 recursive: false                       # search input_dir recursively
 

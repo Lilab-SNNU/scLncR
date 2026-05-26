@@ -5,8 +5,9 @@
 # -----------------------------
 # Input and output
 # -----------------------------
-input_seurat: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step3_dataProcess/data_preprocess/preprocessed_result.rds"
-output_dir: "/home/data/scLncR/scLncR_new/outputs/smartseq2_normalization_benchmark"
+# Replace /path/to/... with your local or server paths before running.
+input_seurat: "/path/to/output/smartseq2_step3_dataProcess/data_preprocess/preprocessed_result.rds"
+output_dir: "/path/to/output/smartseq2_normalization_benchmark"
 lnc_name: "AthLnc"
 
 # -----------------------------

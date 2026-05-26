@@ -11,19 +11,20 @@ count_engine: "cellranger"             # cellranger | featurecounts | starsolo
 # -----------------------------
 # Input and output
 # -----------------------------
-samples_dirs: "/home/data/scLncR/data/paper_test"
-samples_info: "/home/data/scLncR/data/paper_test/samples_info.txt"
+# Replace /path/to/... with your local or server paths before running.
+samples_dirs: "/path/to/raw_fastq"
+samples_info: "/path/to/raw_fastq/samples_info.txt"
 project_name: "scLncR"
-output_path: "/home/data/scLncR/paper/paper_case/step2_count"
+output_path: "/path/to/output/step2_count"
 threads: 24
 
 # -----------------------------
 # Reference files
 # -----------------------------
-genome_file: "/home/data/scLncR/genome/TAIR10.fa"
-known_gtf: "/home/data/scLncR/genome/Araport11_current.gtf"
-lnc_gtf: "/home/data/scLncR/paper/paper_case/step1_prelnc/final_lnc.gtf"
-combined_gtf: "/home/data/scLncR/paper/paper_case/step1_prelnc/reference/combined_mRNA_lncRNA.gtf"
+genome_file: "/path/to/reference/genome.fa"
+known_gtf: "/path/to/reference/annotation.gtf"
+lnc_gtf: "/path/to/output/step1_prelnc/final_lnc.gtf"
+combined_gtf: "/path/to/output/step1_prelnc/reference/combined_mRNA_lncRNA.gtf"
 
 # -----------------------------
 # FASTQ parsing

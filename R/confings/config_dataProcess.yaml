@@ -9,13 +9,14 @@
 # parent directory containing filtered_feature_bc_matrix.
 # input_format="featurecounts_matrix": counts_matrix points to a gene x sample
 # TSV from featureCounts, used for Smart-seq2.
+# Replace /path/to/... with your local or server paths before running.
 input_format: "10x"                    # 10x | featurecounts_matrix
 sequencing_platform: "10x"             # 10x | smartseq2 | generic
-counts_dir: "~/paper/paper_case/step2_count"
+counts_dir: "/path/to/output/step2_count"
 counts_matrix: ""
-samples_info: "~/data/paper_test/samples_info.txt"
+samples_info: "/path/to/raw_fastq/samples_info.txt"
 project_name: "scLncR"
-output_dir: "~/paper/paper_case/step3_dataProcess"
+output_dir: "/path/to/output/step3_dataProcess"
 
 # -----------------------------
 # Gene prefixes and QC filters
@@ -37,7 +38,7 @@ resolution: 0.5
 # Cell type annotation
 # -----------------------------
 anno_method: "SingleR"                  # SingleR | scMM | none
-ref_file: "~/data/singler/Ryu_2019_507252.rds"
+ref_file: "/path/to/reference/singler_reference.rds"
 marker_gene_file: ""
 tissue: ""
 n_top_markers: 3

@@ -9,8 +9,9 @@
 #   data_preprocess/preprocessed_result.rds
 # or, after annotation:
 #   data_annotation/anno_result.rds
-input_seurat: "path/to/seurat_object.rds"
-output_dir: "normalization_benchmark_results"
+# Replace /path/to/... with your local or server paths before running.
+input_seurat: "/path/to/output/step3_dataProcess/data_annotation/anno_result.rds"
+output_dir: "/path/to/output/normalization_benchmark_results"
 lnc_name: "AthLnc"                      # lncRNA gene prefix
 
 # -----------------------------

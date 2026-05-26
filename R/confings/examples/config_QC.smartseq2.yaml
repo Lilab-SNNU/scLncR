@@ -5,8 +5,9 @@
 # -----------------------------
 # Input and output
 # -----------------------------
-input_dir: "/home/data/scLncR/data/smart-seq2/SRP065494/"
-output_dir: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step0_qc"
+# Replace /path/to/... with your local or server paths before running.
+input_dir: "/path/to/smartseq2_fastq"
+output_dir: "/path/to/output/smartseq2_step0_qc"
 file_pattern: "*.fastq.gz"
 recursive: false
 

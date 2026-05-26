@@ -5,13 +5,14 @@
 # -----------------------------
 # Input format and paths
 # -----------------------------
+# Replace /path/to/... with your local or server paths before running.
 input_format: "featurecounts_matrix"
 sequencing_platform: "smartseq2"
 counts_dir: ""
-counts_matrix: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step2_count/featurecounts/smartseq2_count_matrix.tsv"
-samples_info: "/home/data/scLncR/data/smart-seq2/SRP065494/samples_info.txt"
+counts_matrix: "/path/to/output/smartseq2_step2_count/featurecounts/smartseq2_count_matrix.tsv"
+samples_info: "/path/to/smartseq2_fastq/samples_info.txt"
 project_name: "scLncR_smartseq2"
-output_dir: "/home/data/scLncR/scLncR_new/outputs/smartseq2_step3_dataProcess"
+output_dir: "/path/to/output/smartseq2_step3_dataProcess"
 
 # -----------------------------
 # Gene prefixes and QC filters

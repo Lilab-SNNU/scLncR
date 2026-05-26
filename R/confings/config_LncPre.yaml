@@ -5,12 +5,13 @@
 # -----------------------------
 # Input and output
 # -----------------------------
-samples_dirs: "/home/data/scLncR/data/paper_test"
-samples_info: "/home/data/scLncR/data/paper_test/samples_info.txt"
+# Replace /path/to/... with your local or server paths before running.
+samples_dirs: "/path/to/raw_fastq"
+samples_info: "/path/to/raw_fastq/samples_info.txt"
 project_name: "scLncR"
-output_path: "/home/data/scLncR/paper/paper_case/step1_prelnc"
-genome_file: "/home/data/scLncR/genome/TAIR10.fa"
-gtf_file: "/home/data/scLncR/genome/Araport11_current.gtf"
+output_path: "/path/to/output/step1_prelnc"
+genome_file: "/path/to/reference/genome.fa"
+gtf_file: "/path/to/reference/annotation.gtf"
 lncrna_name: "AthLnc"                  # prefix assigned to predicted lncRNAs
 threads: 24
 
