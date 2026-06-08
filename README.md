@@ -56,6 +56,7 @@ devtools::install_github("chloelulu/scMayoMap")
 
 If you want get more information of `hdWGCNA` and `scMayoMap`, you can found then in their GitHub repositories.
 
+Cellranger also needs to be installed.
 ```shell
 cd /opt
 # [Download file from downloads page https://www.10xgenomics.com/support/software/cell-ranger/downloads/previous-versions]
