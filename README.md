@@ -42,7 +42,7 @@ The `scLncR` launcher automatically sets `SC_LNCR_HOME` before calling the R ent
 
 If you need complete environment reproduction, exported environment files are available in `envs/`.
 
-### Independent R package installation
+### Independent R package and Cellranger installation
 
 Some optional downstream packages may need independent installation depending on your R/conda setup, especially `hdWGCNA` and `scMayoMap`.
 
@@ -55,6 +55,14 @@ devtools::install_github("chloelulu/scMayoMap")
 ```
 
 If you want get more information of `hdWGCNA` and `scMayoMap`, you can found then in their GitHub repositories.
+
+```shell
+cd /opt
+# [Download file from downloads page https://www.10xgenomics.com/support/software/cell-ranger/downloads/previous-versions]
+tar -xzvf cellranger-7.2.0.tar.gz
+export PATH=/opt/cellranger-7.2.0:$PATH
+cellranger -V ## Check cellranger
+```
 
 ### R package list
 
