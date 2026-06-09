@@ -181,7 +181,7 @@ final.lncRNA.fa
 reference/combined_mRNA_lncRNA.gtf
 ```
 
-#### Step 2. lncRNA-aware quantification
+#### Step 2. Single-cell count matrix getting
 
 ```text
 scLncR count -c R/confings/config_Count.yaml
@@ -191,7 +191,7 @@ For 10x data, scLncR builds a Cell Ranger reference using the augmented annotati
 
 For Smart-seq2 data, scLncR uses HISAT2, samtools, and featureCounts.
 
-#### Step 3. Data preprocessing
+#### Step 3. Data Processing
 
 ```text
 scLncR dataProcess -c R/confings/config_dataProcess.yaml
@@ -200,7 +200,7 @@ scLncR dataProcess -c R/confings/config_dataProcess.yaml
 This step creates a Seurat object, performs QC, normalization, feature selection, dimensional reduction, clustering, and optional annotation.
 
 
-#### Step 4. Downstream function analysis
+#### Step 4. Downstream function explore
 
 ```text
 scLncR function -c R/confings/config_function.yaml
