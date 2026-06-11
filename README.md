@@ -264,7 +264,6 @@ input_format: "featurecounts_matrix"
 | `prelnc` | Candidate lncRNA prediction and augmented reference construction |
 | `count` | 10x Cell Ranger count or Smart-seq2 featureCounts quantification |
 | `dataProcess` | Seurat preprocessing and optional annotation |
-| `normalization_benchmark` | Normalization strategy comparison and stability analysis |
 | `function` | snRNA/scRNA enrichment, Monocle2, and WGCNA |
 | `shiny` | Graphical user interface |
 
@@ -279,7 +278,6 @@ R/confings/config_QC.yaml
 R/confings/config_LncPre.yaml
 R/confings/config_Count.yaml
 R/confings/config_dataProcess.yaml
-R/confings/config_normalization_benchmark.yaml
 R/confings/config_function.yaml
 ```
 
